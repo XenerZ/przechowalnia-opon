@@ -1,0 +1,103 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Przechowalnia Opon</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="navbar-container"></div>
+  <main class="app-main">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Dashboard</h1>
+          <p class="page-subtitle" id="subtitle">Witaj! Oto przegląd przechowalni.</p>
+        </div>
+        <button class="btn btn-primary" id="addBtn" style="display:none" onclick="window.location.href='tires.html?add=1'">+ Dodaj wpis</button>
+      </div>
+
+      <div id="errBox"></div>
+
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card stat-card--blue"><div class="stat-value">…</div><div class="stat-label">Ładowanie</div></div>
+      </div>
+
+      <div class="card" style="margin-top:2rem">
+        <div class="card-header">
+          <h2 class="card-title">Ostatnio dodane</h2>
+          <a href="tires.html" class="btn btn-outline btn-sm">Zobacz wszystkie</a>
+        </div>
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Klient</th>
+                <th>Nr rejestracyjny</th>
+                <th>Rozmiar</th>
+                <th>Lokalizacja</th>
+                <th>Data przyjęcia</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="recentBody">
+              <tr><td colspan="6" class="table-empty">Ładowanie…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/navbar.js"></script>
+<script>
+var me = Auth.requireAuth(); if (!me) throw 0;
+Navbar.render();
+
+document.getElementById('subtitle').textContent = 'Witaj, ' + me.username + '! Oto przegląd przechowalni.';
+if (Auth.can(me, 'add_entries')) document.getElementById('addBtn').style.display = 'inline-flex';
+
+Promise.all([API.get('/tires/stats'), API.get('/tires')]).then(function(r) {
+  var s   = r[0];
+  var all = r[1];
+
+  document.getElementById('statsGrid').innerHTML =
+    card('stat-card--blue',   'tires.html',                          s.total,             'Wszystkie wpisy') +
+    card('stat-card--green',  'tires.html?status=W+przechowalni',    s.inStorage,         'Aktualnie w przechowalni') +
+    card('stat-card--orange', 'tires.html?week=releasedThisWeek',    s.releasedThisWeek,  'Wydane w tym tygodniu') +
+    card('stat-card--purple', 'tires.html?week=receivedThisWeek',    s.receivedThisWeek,  'Przyjęte w tym tygodniu');
+
+  var recent = all.slice().sort(function(a,b){ return (b.dateIn||'').localeCompare(a.dateIn||''); }).slice(0, 5);
+
+  document.getElementById('recentBody').innerHTML = recent.length ? recent.map(function(t) {
+    var size  = t.tireWidth + '/' + t.tireProfile + ' R' + t.tireDiameter + (t.tireYear ? ' · ' + t.tireYear : '');
+    var badge = t.status === 'W przechowalni'
+      ? '<span class="status-badge status-badge--green">W przechowalni</span>'
+      : '<span class="status-badge status-badge--gray">Wydane</span>';
+    return '<tr>' +
+      '<td><strong>' + t.fullName + '</strong>' + (t.phone ? '<br><span class="text-muted" style="font-size:.85rem">' + t.phone + '</span>' : '') + '</td>' +
+      '<td><span class="plate"><span class="plate-eu"><span class="plate-stars">★</span><span class="plate-country">PL</span></span><span class="plate-text">' + t.licensePlate + '</span></span></td>' +
+      '<td>' + size + '</td>' +
+      '<td><span class="location-badge">' + t.location + '</span></td>' +
+      '<td>' + t.dateIn + '</td>' +
+      '<td>' + badge + '</td>' +
+      '</tr>';
+  }).join('') : '<tr><td colspan="6" class="table-empty">Brak wpisów</td></tr>';
+
+}).catch(function(e) {
+  document.getElementById('errBox').innerHTML = '<div class="alert alert-error" style="margin-bottom:1rem">Nie można połączyć się z serwerem. Sprawdź czy API jest uruchomione.</div>';
+  document.getElementById('recentBody').innerHTML = '<tr><td colspan="6" class="table-empty">—</td></tr>';
+  document.getElementById('statsGrid').innerHTML = '';
+});
+
+function card(cls, href, value, label) {
+  return '<a href="' + href + '" class="stat-card ' + cls + ' stat-card--link">' +
+    '<div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></a>';
+}
+</script>
+</body>
+</html>

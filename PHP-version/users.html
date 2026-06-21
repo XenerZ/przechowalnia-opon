@@ -1,0 +1,351 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Użytkownicy — Przechowalnia Opon</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="navbar-container"></div>
+  <main class="app-main">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Zarządzanie użytkownikami</h1>
+          <p class="page-subtitle" id="subtitle">Ładowanie…</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAdd()">+ Nowy użytkownik</button>
+      </div>
+
+      <div id="alertBox" style="margin-bottom:1rem"></div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table class="table">
+            <thead><tr>
+              <th>Użytkownik</th>
+              <th>E-mail</th>
+              <th>Rola</th>
+              <th>Uprawnienia</th>
+              <th>Data utworzenia</th>
+              <th>Akcje</th>
+            </tr></thead>
+            <tbody id="tbody"><tr><td colspan="6" class="table-empty">Ładowanie…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Dodaj / Edytuj użytkownika -->
+<div class="modal-overlay" id="mUser" style="display:none" onclick="overlayClose(event,'mUser')">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title" id="mUserTitle">Nowy użytkownik</span>
+      <button class="modal-close" onclick="closeModal('mUser')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form class="tire-form" onsubmit="saveUser(event)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nazwa użytkownika *</label>
+            <input id="fLogin">
+            <span class="form-error" id="errLogin" style="display:none"></span>
+          </div>
+          <div class="form-group">
+            <label>Adres e-mail *</label>
+            <input id="fEmail" type="email">
+            <span class="form-error" id="errEmail" style="display:none"></span>
+          </div>
+          <div class="form-group">
+            <label id="passLabel">Hasło *</label>
+            <input id="fPass" type="password" placeholder="">
+            <span class="form-error" id="errPass" style="display:none"></span>
+          </div>
+          <div class="form-group">
+            <label>Rola *</label>
+            <select id="fRole">
+              <option value="pracownik">Pracownik</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('mUser')">Anuluj</button>
+          <button type="submit" class="btn btn-primary" id="uSubmitBtn">Utwórz użytkownika</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Uprawnienia -->
+<div class="modal-overlay" id="mPerms" style="display:none" onclick="overlayClose(event,'mPerms')">
+  <div class="modal-box" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title" id="mPermsTitle">Uprawnienia</span>
+      <button class="modal-close" onclick="closeModal('mPerms')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:1rem;color:var(--gray-600);font-size:.875rem" id="permsDesc"></p>
+      <div class="perm-presets">
+        <span style="font-size:.78rem;color:var(--gray-600);font-weight:600">Szybki preset:</span>
+        <button class="btn btn-sm btn-outline" onclick="applyPreset('pracownik')">👤 Pracownik</button>
+        <button class="btn btn-sm btn-outline" onclick="applyPreset('admin')">👑 Administrator</button>
+        <button class="btn btn-sm btn-outline" onclick="applyPreset('none')">Wyczyść</button>
+      </div>
+      <div class="perm-list" id="permList"></div>
+      <div class="form-actions" style="margin-top:1.5rem">
+        <button class="btn btn-outline" onclick="closeModal('mPerms')">Anuluj</button>
+        <button class="btn btn-primary" onclick="savePerms()">Zapisz uprawnienia</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Usuń -->
+<div class="modal-overlay" id="mDelete" style="display:none" onclick="overlayClose(event,'mDelete')">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title">Potwierdź usunięcie</span>
+      <button class="modal-close" onclick="closeModal('mDelete')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form onsubmit="confirmDelete(event)">
+        <div class="confirm-message" id="delMsg"></div>
+        <div class="form-group" style="margin-top:1.25rem">
+          <label>Potwierdź hasłem</label>
+          <input type="password" id="delPass" placeholder="Twoje hasło">
+          <span class="form-error" id="delErr" style="display:none"></span>
+        </div>
+        <div class="form-actions" style="margin-top:1.25rem">
+          <button type="button" class="btn btn-outline" onclick="closeModal('mDelete')">Anuluj</button>
+          <button type="submit" class="btn btn-danger" id="delBtn">Usuń</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/navbar.js"></script>
+<script>
+var me = Auth.requireAuth(); if (!me) throw 0;
+if (!Auth.can(me, 'manage_users')) { window.location.href = 'dashboard.html'; throw 0; }
+Navbar.render();
+
+var users = [], editId = null, deleteId = null, permUserId = null;
+
+var PERMS = [
+  { key: 'manage_users',   label: 'Zarządzanie użytkownikami', desc: 'Dostęp do panelu użytkowników, tworzenie kont i zmiana uprawnień' },
+  { key: 'add_entries',    label: 'Dodawanie wpisów',           desc: 'Możliwość dodawania nowych wpisów do przechowalni' },
+  { key: 'edit_entries',   label: 'Edycja wpisów',              desc: 'Możliwość edycji istniejących wpisów w przechowalni' },
+  { key: 'delete_entries', label: 'Usuwanie wpisów',            desc: 'Możliwość trwałego usuwania wpisów z przechowalni' },
+];
+
+var DEFAULT_PERMS = {
+  admin:     ['manage_users','add_entries','edit_entries','delete_entries'],
+  pracownik: ['add_entries','edit_entries'],
+  none:      [],
+};
+
+var PERM_LABELS = {};
+PERMS.forEach(function(p){ PERM_LABELS[p.key] = p.label; });
+
+API.get('/users').then(function (data) {
+  users = data;
+  document.getElementById('subtitle').textContent = users.length + ' użytkowników w systemie';
+  render();
+}).catch(function (e) {
+  document.getElementById('tbody').innerHTML = '<tr><td colspan="6" class="table-empty">Błąd: ' + e.message + '</td></tr>';
+});
+
+function render() {
+  document.getElementById('subtitle').textContent = users.length + ' użytkowników w systemie';
+  document.getElementById('tbody').innerHTML = users.map(function (u) {
+    var isMe = u.id === me.id;
+    var perms = (u.permissions || []).map(function (p) {
+      return PERM_LABELS[p] ? '<span class="perm-chip">' + PERM_LABELS[p] + '</span>' : '';
+    }).join('');
+    var roleLabel = u.role === 'admin' ? '👑 Administrator' : '👤 Pracownik';
+    return '<tr' + (isMe ? ' class="row-highlight"' : '') + '>' +
+      '<td><strong>' + u.username + '</strong>' + (isMe ? ' <span class="you-badge">(Ty)</span>' : '') + '</td>' +
+      '<td>' + u.email + '</td>' +
+      '<td><span class="role-pill role-pill--' + u.role + '">' + roleLabel + '</span></td>' +
+      '<td><div class="perm-chips">' + (perms || '<span class="text-muted" style="font-size:.8rem">Brak uprawnień</span>') + '</div></td>' +
+      '<td>' + (u.createdAt || '—') + '</td>' +
+      '<td><div class="action-btns">' +
+        '<button class="btn btn-sm btn-outline" onclick="openEdit(' + u.id + ')">Edytuj</button>' +
+        '<button class="btn btn-sm btn-outline" onclick="openPerms(' + u.id + ')">🔑 Uprawnienia</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="openDelete(' + u.id + ',\'' + u.username + '\')" ' + (isMe ? 'disabled title="Nie możesz usunąć własnego konta"' : '') + '>Usuń</button>' +
+      '</div></td>' +
+      '</tr>';
+  }).join('') || '<tr><td colspan="6" class="table-empty">Brak użytkowników</td></tr>';
+}
+
+// ── Dodaj / Edytuj ──────────────────────────────────────────────────────────────
+function openAdd() {
+  editId = null;
+  document.getElementById('mUserTitle').textContent = 'Nowy użytkownik';
+  document.getElementById('uSubmitBtn').textContent = 'Utwórz użytkownika';
+  document.getElementById('passLabel').textContent = 'Hasło *';
+  document.getElementById('fPass').placeholder = '';
+  document.getElementById('fLogin').value = '';
+  document.getElementById('fEmail').value = '';
+  document.getElementById('fPass').value  = '';
+  document.getElementById('fRole').value  = 'pracownik';
+  clearUserErrors();
+  openModal('mUser');
+}
+
+function openEdit(id) {
+  var u = users.find(function (x) { return x.id === id; }); if (!u) return;
+  editId = id;
+  document.getElementById('mUserTitle').textContent = 'Edytuj użytkownika';
+  document.getElementById('uSubmitBtn').textContent = 'Zapisz zmiany';
+  document.getElementById('passLabel').textContent = 'Nowe hasło (zostaw puste aby nie zmieniać)';
+  document.getElementById('fPass').placeholder = 'Zostaw puste aby nie zmieniać';
+  document.getElementById('fLogin').value = u.username;
+  document.getElementById('fEmail').value = u.email;
+  document.getElementById('fPass').value  = '';
+  document.getElementById('fRole').value  = u.role;
+  clearUserErrors();
+  openModal('mUser');
+}
+
+function clearUserErrors() {
+  ['Login','Email','Pass'].forEach(function (s) {
+    var el = document.getElementById('err' + s);
+    if (el) { el.style.display = 'none'; el.textContent = ''; }
+  });
+}
+function showUserErr(id, msg) { var el = document.getElementById(id); el.textContent = msg; el.style.display = 'block'; }
+
+async function saveUser(e) {
+  e.preventDefault(); clearUserErrors();
+  var login = document.getElementById('fLogin').value.trim();
+  var email = document.getElementById('fEmail').value.trim();
+  var pass  = document.getElementById('fPass').value;
+  var role  = document.getElementById('fRole').value;
+  var ok = true;
+  if (!login) { showUserErr('errLogin', 'Pole wymagane'); ok = false; }
+  if (!email) { showUserErr('errEmail', 'Pole wymagane'); ok = false; }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showUserErr('errEmail', 'Nieprawidłowy e-mail'); ok = false; }
+  if (!editId && !pass) { showUserErr('errPass', 'Pole wymagane'); ok = false; }
+  if (pass && pass.length < 6) { showUserErr('errPass', 'Minimum 6 znaków'); ok = false; }
+  if (!ok) return;
+
+  var btn = document.getElementById('uSubmitBtn'); btn.disabled = true;
+  try {
+    var payload = { username: login, email: email, role: role };
+    if (pass) payload.password = pass;
+    var res;
+    if (editId) {
+      res = await API.put('/users/' + editId, payload);
+      var i = users.findIndex(function (u) { return u.id === editId; });
+      if (i !== -1) { users[i] = Object.assign(users[i], res); }
+      showAlert('Dane użytkownika zostały zaktualizowane.', 'success');
+    } else {
+      res = await API.post('/users', payload);
+      users.push(res);
+      showAlert('Użytkownik został utworzony.', 'success');
+    }
+    closeModal('mUser'); render();
+  } catch (err) {
+    showUserErr('errLogin', err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Uprawnienia ─────────────────────────────────────────────────────────────────
+function openPerms(id) {
+  var u = users.find(function (x) { return x.id === id; }); if (!u) return;
+  permUserId = id;
+  document.getElementById('mPermsTitle').textContent = 'Uprawnienia: ' + u.username;
+  document.getElementById('permsDesc').innerHTML = 'Zaznacz uprawnienia dla użytkownika <strong>' + u.username + '</strong>.';
+  renderPermList(u.permissions || []);
+  openModal('mPerms');
+}
+
+function renderPermList(selected) {
+  document.getElementById('permList').innerHTML = PERMS.map(function (p) {
+    var checked = selected.indexOf(p.key) !== -1;
+    return '<label class="perm-row' + (checked ? ' perm-row--active' : '') + '">' +
+      '<input type="checkbox" value="' + p.key + '" ' + (checked ? 'checked' : '') +
+        ' onchange="this.closest(\'.perm-row\').classList.toggle(\'perm-row--active\',this.checked)">' +
+      '<div class="perm-row-info">' +
+        '<span class="perm-row-label">' + p.label + '</span>' +
+        '<span class="perm-row-desc">' + p.desc + '</span>' +
+      '</div></label>';
+  }).join('');
+}
+
+function applyPreset(role) {
+  var perms = DEFAULT_PERMS[role] || [];
+  document.querySelectorAll('#permList input[type=checkbox]').forEach(function (cb) {
+    cb.checked = perms.indexOf(cb.value) !== -1;
+    cb.closest('.perm-row').classList.toggle('perm-row--active', cb.checked);
+  });
+}
+
+async function savePerms() {
+  var selected = Array.from(document.querySelectorAll('#permList input:checked')).map(function (cb) { return cb.value; });
+  try {
+    await API.put('/users/' + permUserId + '/permissions', { permissions: selected });
+    var i = users.findIndex(function (u) { return u.id === permUserId; });
+    if (i !== -1) users[i].permissions = selected;
+    closeModal('mPerms'); render();
+    showAlert('Uprawnienia zostały zaktualizowane.', 'success');
+  } catch (e) { showAlert(e.message, 'error'); }
+}
+
+// ── Usuń ─────────────────────────────────────────────────────────────────────────
+function openDelete(id, name) {
+  deleteId = id;
+  document.getElementById('delMsg').innerHTML =
+    'Czy na pewno chcesz usunąć użytkownika <strong>' + name + '</strong>? ' +
+    '<span style="color:var(--danger)">Operacja jest nieodwracalna.</span>';
+  document.getElementById('delPass').value = '';
+  document.getElementById('delErr').style.display = 'none';
+  openModal('mDelete');
+}
+
+async function confirmDelete(e) {
+  e.preventDefault();
+  var pass = document.getElementById('delPass').value;
+  var errEl = document.getElementById('delErr');
+  if (!pass) { errEl.textContent = 'Podaj hasło.'; errEl.style.display = 'block'; return; }
+  var btn = document.getElementById('delBtn'); btn.disabled = true; btn.textContent = 'Weryfikacja…';
+  try {
+    var v = await API.post('/auth/verify-password', { password: pass });
+    if (!v.valid) {
+      errEl.textContent = 'Nieprawidłowe hasło.'; errEl.style.display = 'block';
+      document.getElementById('delPass').value = ''; btn.disabled = false; btn.textContent = 'Usuń'; return;
+    }
+    if (deleteId === me.id) { showAlert('Nie możesz usunąć własnego konta.', 'error'); closeModal('mDelete'); return; }
+    await API.del('/users/' + deleteId);
+    users = users.filter(function (u) { return u.id !== deleteId; });
+    closeModal('mDelete'); render();
+    showAlert('Użytkownik został usunięty.', 'success');
+  } catch (err) {
+    errEl.textContent = err.message; errEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Usuń';
+  }
+}
+
+function showAlert(msg, type) {
+  var box = document.getElementById('alertBox');
+  box.innerHTML = '<div class="alert alert-' + type + '">' + msg + '</div>';
+  setTimeout(function () { box.innerHTML = ''; }, 4000);
+}
+
+function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function overlayClose(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+</script>
+</body>
+</html>

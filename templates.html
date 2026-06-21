@@ -1,0 +1,339 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Szablony — Przechowalnia Opon</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app-layout">
+  <div id="navbar-container"></div>
+  <main class="app-main">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Szablony wydruków</h1>
+          <p class="page-subtitle" id="subtitle">Ładowanie…</p>
+        </div>
+        <button class="btn btn-primary" onclick="openNew()">+ Nowy szablon</button>
+      </div>
+
+      <div id="errBox"></div>
+      <div id="listArea"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Edytor szablonu (XL) -->
+<div class="modal-overlay" id="mEditor" style="display:none" onclick="overlayClose(event,'mEditor')">
+  <div class="modal-box" style="max-width:1000px;width:95%">
+    <div class="modal-header">
+      <span class="modal-title" id="mEditorTitle">Nowy szablon</span>
+      <button class="modal-close" onclick="closeModal('mEditor')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:1.25rem">
+
+      <!-- Nazwa + format -->
+      <div class="template-editor__name-row">
+        <div class="form-group" style="flex:1">
+          <label>Nazwa szablonu *</label>
+          <input id="eName" placeholder="np. Potwierdzenie przyjęcia" autofocus>
+          <span class="form-error" id="eNameErr" style="display:none"></span>
+        </div>
+        <div class="form-group" style="min-width:190px">
+          <label>Format wydruku</label>
+          <select id="eSize">
+            <option value="A3">A3  (297 × 420 mm)</option>
+            <option value="A4" selected>A4  (210 × 297 mm)</option>
+            <option value="A5">A5  (148 × 210 mm)</option>
+            <option value="A6">A6  (105 × 148 mm)</option>
+            <option value="letter">Letter (216 × 279 mm)</option>
+            <option value="legal">Legal  (216 × 356 mm)</option>
+          </select>
+        </div>
+        <div class="template-editor__name-actions">
+          <button class="btn btn-outline" onclick="closeModal('mEditor')">Anuluj</button>
+          <button class="btn btn-primary" onclick="saveTemplate()">Zapisz</button>
+        </div>
+      </div>
+
+      <!-- Edytor dwukolumnowy -->
+      <div class="template-editor__body" style="margin-top:1rem">
+        <!-- Lewa: lista tagów -->
+        <div class="template-editor__tags">
+          <div class="template-tags__header">Dostępne tagi</div>
+          <p class="template-tags__hint">Kliknij tag, aby wstawić go w miejscu kursora.</p>
+          <div id="tagItems"></div>
+        </div>
+        <!-- Prawa: edytor HTML -->
+        <div class="template-editor__html">
+          <div class="template-editor__toolbar">
+            <span class="template-editor__toolbar-label">Kod HTML szablonu</span>
+            <button class="btn btn-sm btn-outline" id="previewToggleBtn" onclick="togglePreview()">Podgląd</button>
+          </div>
+          <textarea class="template-editor__textarea" id="eHtml" spellcheck="false" placeholder="Wpisz kod HTML szablonu..."></textarea>
+        </div>
+      </div>
+
+      <!-- Podgląd (ukryty domyślnie) -->
+      <div class="template-preview" id="previewPanel" style="display:none;margin-top:1rem">
+        <div class="template-preview__header">Podgląd (przykładowe dane)</div>
+        <div class="template-preview__body" id="previewBody"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Podgląd szablonu -->
+<div class="modal-overlay" id="mPreview" style="display:none" onclick="overlayClose(event,'mPreview')">
+  <div class="modal-box" style="max-width:700px;width:95%">
+    <div class="modal-header">
+      <span class="modal-title" id="mPreviewTitle">Podgląd szablonu</span>
+      <button class="modal-close" onclick="closeModal('mPreview')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0">
+      <div style="background:var(--bg-alt);padding:0.6rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0.75rem;font-size:.85rem;color:var(--text-muted)">
+        <span>Przykładowe dane: Jan Kowalski · CB 12345 · 205/55 R16 · A-12</span>
+        <span style="margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 8px" id="mPreviewSize"></span>
+      </div>
+      <div class="template-preview__body" id="mPreviewBody" style="padding:1.5rem;min-height:300px;overflow:auto"></div>
+    </div>
+    <div class="modal-footer" style="padding:.75rem 1.25rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.5rem">
+      <button class="btn btn-outline" onclick="closeModal('mPreview')">Zamknij</button>
+      <button class="btn btn-primary" id="mPreviewEditBtn">Edytuj szablon</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Usuń -->
+<div class="modal-overlay" id="mDelete" style="display:none" onclick="overlayClose(event,'mDelete')">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title">Usuń szablon</span>
+      <button class="modal-close" onclick="closeModal('mDelete')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="delMsg" style="margin-bottom:1.25rem"></p>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="closeModal('mDelete')">Anuluj</button>
+        <button class="btn btn-danger" id="delBtn" onclick="confirmDelete()">Usuń</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/navbar.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="js/print.js"></script>
+<script>
+var me = Auth.requireAuth(); if (!me) throw 0;
+if (!Auth.can(me, 'manage_users')) { window.location.href = 'dashboard.html'; throw 0; }
+Navbar.render();
+
+var templates = [], editId = null, deleteId = null, showPreview = false;
+
+var SAMPLE_TIRE = {
+  id:42, customerId:7, fullName:'Jan Kowalski', phone:'600 100 200',
+  licensePlate:'WA 12345', tireWidth:205, tireProfile:55, tireDiameter:16, tireYear:2019,
+  location:'A-12', dateIn:'2024-01-15', dateOut:'2024-04-15', status:'W przechowalni',
+  notes:'Przechowywać w suchym miejscu',
+};
+
+var DEFAULT_HTML = '<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #ccc; border-radius: 4px;">\n' +
+  '  <h2 style="text-align: center; font-size: 16pt; margin-bottom: 6px;">POTWIERDZENIE PRZYJĘCIA OPON</h2>\n' +
+  '  <p style="text-align: center; color: #666; font-size: 9pt; margin-bottom: 20px;">Nr wpisu: {{id_pozycji}}</p>\n\n' +
+  '  <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">\n' +
+  '    <tr><td style="padding: 6px 0; font-weight: bold; width: 45%; border-bottom: 1px solid #eee;">Klient:</td><td style="padding: 6px 0; border-bottom: 1px solid #eee;">{{imie_nazwisko}}</td></tr>\n' +
+  '    <tr><td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #eee;">Telefon:</td><td style="padding: 6px 0; border-bottom: 1px solid #eee;">{{telefon}}</td></tr>\n' +
+  '    <tr><td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #eee;">Nr rejestracyjny:</td><td style="padding: 6px 0; border-bottom: 1px solid #eee;"><strong>{{nr_rejestracyjny}}</strong></td></tr>\n' +
+  '    <tr><td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #eee;">Rozmiar opon:</td><td style="padding: 6px 0; border-bottom: 1px solid #eee;">{{rozmiar_kol}}</td></tr>\n' +
+  '    <tr><td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #eee;">Lokalizacja:</td><td style="padding: 6px 0; border-bottom: 1px solid #eee;">{{lokalizacja}}</td></tr>\n' +
+  '    <tr><td style="padding: 6px 0; font-weight: bold; border-bottom: 1px solid #eee;">Data przyjęcia:</td><td style="padding: 6px 0; border-bottom: 1px solid #eee;">{{data_przyjecia}}</td></tr>\n' +
+  '    <tr><td style="padding: 6px 0; font-weight: bold;">Status:</td><td style="padding: 6px 0;">{{status}}</td></tr>\n' +
+  '  </table>\n\n' +
+  '  <p style="margin-top: 24px; font-size: 9pt; color: #666; text-align: center; border-top: 1px solid #eee; padding-top: 12px;">\n' +
+  '    Dziękujemy za skorzystanie z naszych usług.\n' +
+  '  </p>\n</div>';
+
+// Buduj listę tagów w modalu
+(function () {
+  document.getElementById('tagItems').innerHTML = Print.TAGS.map(function (t) {
+    return '<button class="tag-item' + (t.isBarcodeTag ? ' tag-item--barcode' : '') + '" onclick="insertTag(\'' + t.tag + '\')" title="Wstaw ' + t.tag + '">' +
+      '<span class="tag-item__label">' + t.label + '</span>' +
+      '<code class="tag-item__code">' + t.tag + '</code>' +
+      '</button>';
+  }).join('');
+})();
+
+API.get('/templates').then(function (data) {
+  templates = data;
+  render();
+}).catch(function (e) {
+  document.getElementById('errBox').innerHTML = '<div class="alert alert-error" style="margin-bottom:1rem">Nie udało się załadować szablonów.</div>';
+  document.getElementById('subtitle').textContent = '';
+});
+
+function render() {
+  document.getElementById('subtitle').textContent = templates.length + ' ' + (templates.length === 1 ? 'szablon' : 'szablonów');
+  if (!templates.length) {
+    document.getElementById('listArea').innerHTML =
+      '<div class="card" style="padding:2.5rem;text-align:center">' +
+        '<p style="color:var(--text-muted);margin-bottom:1rem">Brak szablonów. Utwórz pierwszy szablon wydruku.</p>' +
+        '<button class="btn btn-primary" onclick="openNew()">+ Utwórz szablon</button>' +
+      '</div>';
+    return;
+  }
+  document.getElementById('listArea').innerHTML =
+    '<div class="template-list">' +
+    templates.map(function (tpl) {
+      var date = tpl.updatedAt || tpl.createdAt;
+      var dateStr = date ? new Date(date).toLocaleDateString('pl-PL') : '—';
+      return '<div class="template-card">' +
+        '<div class="template-card__info">' +
+          '<span class="template-card__name">' + tpl.name + '</span>' +
+          '<span class="template-card__meta">ID: ' + tpl.id + ' · ' + (tpl.pageSize || 'A4') + ' · Zaktualizowano: ' + dateStr + '</span>' +
+        '</div>' +
+        '<div class="template-card__actions">' +
+          '<button class="btn btn-sm btn-outline" onclick="openPreview(' + tpl.id + ')">Podgląd</button>' +
+          '<button class="btn btn-sm btn-outline" onclick="openEdit(' + tpl.id + ')">Edytuj</button>' +
+          '<button class="btn btn-sm btn-danger" onclick="openDeleteModal(' + tpl.id + ',\'' + tpl.name.replace(/'/g, "\\'") + '\')">Usuń</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') +
+    '</div>';
+}
+
+// ── Podgląd szablonu (z listy kart) ───────────────────────────────────────────
+async function openPreview(id) {
+  try {
+    var tpl = await API.get('/templates/' + id);
+    document.getElementById('mPreviewTitle').textContent = 'Podgląd: ' + tpl.name;
+    document.getElementById('mPreviewSize').textContent  = tpl.pageSize || 'A4';
+    document.getElementById('mPreviewBody').innerHTML    = Print.fillTemplate(tpl.htmlContent, SAMPLE_TIRE);
+    document.getElementById('mPreviewEditBtn').onclick   = function () { closeModal('mPreview'); openEdit(id); };
+    openModal('mPreview');
+  } catch (e) {
+    document.getElementById('errBox').innerHTML = '<div class="alert alert-error" style="margin-bottom:1rem">Nie udało się wczytać szablonu.</div>';
+  }
+}
+
+// ── Nowy szablon ───────────────────────────────────────────────────────────────
+function openNew() {
+  editId = null;
+  showPreview = false;
+  document.getElementById('mEditorTitle').textContent = 'Nowy szablon';
+  document.getElementById('eName').value  = '';
+  document.getElementById('eSize').value  = 'A4';
+  document.getElementById('eHtml').value  = DEFAULT_HTML;
+  document.getElementById('eNameErr').style.display = 'none';
+  document.getElementById('previewPanel').style.display = 'none';
+  document.getElementById('previewToggleBtn').className = 'btn btn-sm btn-outline';
+  openModal('mEditor');
+  setTimeout(function(){ document.getElementById('eName').focus(); }, 50);
+}
+
+// ── Edytuj ─────────────────────────────────────────────────────────────────────
+async function openEdit(id) {
+  try {
+    var tpl = await API.get('/templates/' + id);
+    editId = id;
+    showPreview = false;
+    document.getElementById('mEditorTitle').textContent = 'Edytuj szablon';
+    document.getElementById('eName').value  = tpl.name;
+    document.getElementById('eSize').value  = tpl.pageSize || 'A4';
+    document.getElementById('eHtml').value  = tpl.htmlContent;
+    document.getElementById('eNameErr').style.display = 'none';
+    document.getElementById('previewPanel').style.display = 'none';
+    document.getElementById('previewToggleBtn').className = 'btn btn-sm btn-outline';
+    openModal('mEditor');
+  } catch (e) {
+    document.getElementById('errBox').innerHTML = '<div class="alert alert-error" style="margin-bottom:1rem">Nie udało się wczytać szablonu.</div>';
+  }
+}
+
+async function saveTemplate() {
+  var name = document.getElementById('eName').value.trim();
+  var errEl = document.getElementById('eNameErr');
+  if (!name) { errEl.textContent = 'Nazwa szablonu jest wymagana.'; errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+
+  var payload = {
+    name: name,
+    htmlContent: document.getElementById('eHtml').value,
+    pageSize: document.getElementById('eSize').value,
+  };
+  try {
+    var res;
+    if (editId) {
+      res = await API.put('/templates/' + editId, payload);
+      var i = templates.findIndex(function (t) { return t.id === editId; });
+      if (i !== -1) templates[i] = res;
+    } else {
+      res = await API.post('/templates', payload);
+      templates.push(res);
+    }
+    closeModal('mEditor'); render();
+  } catch (e) {
+    document.getElementById('errBox').innerHTML = '<div class="alert alert-error" style="margin-bottom:1rem">' + e.message + '</div>';
+  }
+}
+
+// ── Wstawianie tagów ───────────────────────────────────────────────────────────
+function insertTag(tag) {
+  var ta = document.getElementById('eHtml');
+  var start = ta.selectionStart, end = ta.selectionEnd;
+  ta.value = ta.value.slice(0, start) + tag + ta.value.slice(end);
+  ta.focus();
+  ta.setSelectionRange(start + tag.length, start + tag.length);
+}
+
+// ── Podgląd ────────────────────────────────────────────────────────────────────
+function togglePreview() {
+  showPreview = !showPreview;
+  var panel = document.getElementById('previewPanel');
+  var btn   = document.getElementById('previewToggleBtn');
+  if (showPreview) {
+    var html = Print.fillTemplate(document.getElementById('eHtml').value, SAMPLE_TIRE);
+    document.getElementById('previewBody').innerHTML = html;
+    panel.style.display = '';
+    btn.className = 'btn btn-sm btn-outline btn-active';
+    btn.textContent = 'Ukryj podgląd';
+  } else {
+    panel.style.display = 'none';
+    btn.className = 'btn btn-sm btn-outline';
+    btn.textContent = 'Podgląd';
+  }
+}
+
+// ── Usuń ───────────────────────────────────────────────────────────────────────
+function openDeleteModal(id, name) {
+  deleteId = id;
+  document.getElementById('delMsg').innerHTML =
+    'Czy na pewno chcesz usunąć szablon <strong>' + name + '</strong>? ' +
+    '<span style="color:var(--danger)">Operacja jest nieodwracalna.</span>';
+  openModal('mDelete');
+}
+
+async function confirmDelete() {
+  var btn = document.getElementById('delBtn'); btn.disabled = true; btn.textContent = 'Usuwanie…';
+  try {
+    await API.del('/templates/' + deleteId);
+    templates = templates.filter(function (t) { return t.id !== deleteId; });
+    closeModal('mDelete'); render();
+  } catch (e) {
+    document.getElementById('errBox').innerHTML = '<div class="alert alert-error" style="margin-bottom:1rem">' + e.message + '</div>';
+    closeModal('mDelete');
+  } finally { btn.disabled = false; btn.textContent = 'Usuń'; }
+}
+
+function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function overlayClose(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+</script>
+</body>
+</html>

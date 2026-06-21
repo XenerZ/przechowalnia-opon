@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logowanie — Przechowalnia Opon</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-brand-icon">PO</div>
+      <div>
+        <h1 class="auth-title">Przechowalnia Opon</h1>
+        <p class="auth-subtitle">System zarządzania</p>
+      </div>
+    </div>
+    <form id="loginForm" class="auth-form">
+      <div id="loginError"></div>
+      <div class="form-group">
+        <label>Nazwa użytkownika</label>
+        <input id="username" type="text" autofocus placeholder="login">
+      </div>
+      <div class="form-group">
+        <label>Hasło</label>
+        <input id="password" type="password" placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Zaloguj się</button>
+    </form>
+
+    <!-- Panel diagnostyczny -->
+    <div id="diagPanel" style="margin-top:1rem;font-size:.78rem;border-top:1px solid var(--border);padding-top:.75rem;display:none">
+      <div style="font-weight:600;margin-bottom:.4rem;color:var(--text-muted)">Diagnostyka połączenia</div>
+      <div id="diagMock"></div>
+      <div id="diagApi"></div>
+      <div id="diagLogin"></div>
+    </div>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script>
+(function(){ var t=localStorage.getItem('po_theme')||'light'; document.documentElement.setAttribute('data-theme',t); })();
+if (API.getUser() && API.getToken()) window.location.href = 'dashboard.html';
+
+// ── Diagnostyka ────────────────────────────────────────────────────────────────
+var DIAG_SHOWN = false;
+
+function row(ok, label, detail) {
+  var color = ok === true ? '#22863a' : ok === false ? '#cb2431' : '#735c0f';
+  var icon  = ok === true ? '✅' : ok === false ? '❌' : '⚠️';
+  return '<div style="display:flex;gap:.4rem;margin:.15rem 0;color:' + color + '">' +
+    '<span>' + icon + '</span>' +
+    '<span><strong>' + label + '</strong>' + (detail ? ' — ' + detail : '') + '</span>' +
+  '</div>';
+}
+
+async function runDiag() {
+  document.getElementById('diagPanel').style.display = 'block';
+
+  // 1. Tryb
+  var isMock = (typeof MOCK_MODE !== 'undefined' && MOCK_MODE === true);
+  document.getElementById('diagMock').innerHTML = row(
+    !isMock,
+    'Tryb API',
+    isMock ? 'MOCK (dane testowe) — zmień MOCK_MODE = false w js/api.js' : 'Prawdziwe API'
+  );
+
+  if (isMock) return; // dalej bez sensu gdy mock
+
+  // 2. Osiągalność API
+  var apiOk = false, apiMsg = '';
+  try {
+    var r = await fetch('api/index.php', { method: 'GET' });
+    var txt = await r.text();
+    try { var j = JSON.parse(txt); apiMsg = 'HTTP ' + r.status + ' → ' + (j.message || JSON.stringify(j).slice(0,60)); }
+    catch(e) { apiMsg = 'HTTP ' + r.status + ' → odpowiedź nie jest JSON: ' + txt.slice(0,80); }
+    apiOk = r.status !== 0;
+  } catch(e) {
+    apiMsg = 'Brak połączenia: ' + e.message;
+  }
+  document.getElementById('diagApi').innerHTML = row(apiOk, 'Plik api/index.php', apiMsg);
+
+  // 3. Test logowania (zły login → sprawdzamy czy API zwraca właściwy błąd)
+  var loginOk = false, loginMsg = '';
+  try {
+    var r2 = await fetch('api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: '__test__', password: '__test__' })
+    });
+    var txt2 = await r2.text();
+    try {
+      var j2 = JSON.parse(txt2);
+      if (r2.status === 401 || (j2.message && j2.message.includes('Nieprawidłowa'))) {
+        loginOk = true;
+        loginMsg = 'API działa, baza odpowiada (401 dla złych danych)';
+      } else if (r2.status === 404) {
+        loginMsg = 'Routing nie działa — zwrócono 404: ' + (j2.message || '');
+      } else if (r2.status === 500) {
+        loginMsg = 'Błąd serwera (500) — prawdopodobnie błąd połączenia z bazą: ' + (j2.message || '');
+      } else {
+        loginMsg = 'HTTP ' + r2.status + ': ' + (j2.message || txt2.slice(0,80));
+      }
+    } catch(e) {
+      loginMsg = 'Odpowiedź nie jest JSON: ' + txt2.slice(0,120);
+    }
+  } catch(e) {
+    loginMsg = 'Brak odpowiedzi: ' + e.message;
+  }
+  document.getElementById('diagLogin').innerHTML = row(loginOk, 'Endpoint /auth/login', loginMsg);
+}
+
+// Pokaż diagnostykę po kliknięciu tytułu (5 razy)
+var clickCount = 0;
+document.querySelector('.auth-brand').addEventListener('click', function() {
+  clickCount++;
+  if (clickCount >= 3 && !DIAG_SHOWN) { DIAG_SHOWN = true; runDiag(); }
+});
+
+// ── Logowanie ──────────────────────────────────────────────────────────────────
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var btn = document.getElementById('submitBtn');
+  var err = document.getElementById('loginError');
+  err.innerHTML = '';
+  btn.disabled = true; btn.textContent = 'Logowanie...';
+  try {
+    var data = await API.post('/auth/login', {
+      username: document.getElementById('username').value.trim(),
+      password: document.getElementById('password').value
+    });
+    API.saveToken(data.token);
+    API.saveUser(data.user);
+    window.location.href = 'dashboard.html';
+  } catch(ex) {
+    err.innerHTML = '<div class="alert alert-error">' + ex.message + '</div>';
+    btn.disabled = false; btn.textContent = 'Zaloguj się';
+    // Pokaż diagnostykę automatycznie po błędzie
+    if (!DIAG_SHOWN) { DIAG_SHOWN = true; runDiag(); }
+  }
+});
+</script>
+</body>
+</html>

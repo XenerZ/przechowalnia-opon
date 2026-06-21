@@ -1,0 +1,23 @@
+# ── Wgraj ten plik jako .htaccess do głównego katalogu www/ na OVH ─────────────
+
+# Typy MIME
+AddType application/javascript .js .mjs
+AddType text/css .css
+AddType image/svg+xml .svg
+AddType application/json .json
+AddType image/png .png
+AddType image/webp .webp
+AddType font/woff2 .woff2
+AddType font/woff .woff
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # OVH stripuje nagłówek Authorization — przekaż go ręcznie do PHP
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+  # Zapytania do /api/* → PHP router
+  RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+</IfModule>
