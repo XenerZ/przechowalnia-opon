@@ -109,6 +109,35 @@
   </div>
 </div>
 
+<!-- Modal: Zmień hasło (admin) -->
+<div class="modal-overlay" id="mAdminPass" style="display:none" onclick="overlayClose(event,'mAdminPass')">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title" id="mAdminPassTitle">Zmień hasło</span>
+      <button class="modal-close" onclick="closeModal('mAdminPass')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form onsubmit="saveAdminPass(event)">
+        <p style="font-size:.85rem;color:var(--gray-600);margin-bottom:1rem" id="mAdminPassDesc"></p>
+        <div class="form-group">
+          <label>Nowe hasło *</label>
+          <input type="password" id="adminNewPass" placeholder="min. 6 znaków">
+          <span class="form-error" id="adminNewPassErr" style="display:none"></span>
+        </div>
+        <div class="form-group">
+          <label>Powtórz nowe hasło *</label>
+          <input type="password" id="adminNewPass2" placeholder="••••••••">
+          <span class="form-error" id="adminNewPass2Err" style="display:none"></span>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('mAdminPass')">Anuluj</button>
+          <button type="submit" class="btn btn-primary" id="adminPassBtn">Zmień hasło</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Usuń -->
 <div class="modal-overlay" id="mDelete" style="display:none" onclick="overlayClose(event,'mDelete')">
   <div class="modal-box" style="max-width:440px">
@@ -184,6 +213,7 @@ function render() {
       '<td><div class="action-btns">' +
         '<button class="btn btn-sm btn-outline" onclick="openEdit(' + u.id + ')">Edytuj</button>' +
         '<button class="btn btn-sm btn-outline" onclick="openPerms(' + u.id + ')">🔑 Uprawnienia</button>' +
+        '<button class="btn btn-sm btn-outline" onclick="openAdminPass(' + u.id + ',\'' + u.username + '\')">🔒 Hasło</button>' +
         '<button class="btn btn-sm btn-danger" onclick="openDelete(' + u.id + ',\'' + u.username + '\')" ' + (isMe ? 'disabled title="Nie możesz usunąć własnego konta"' : '') + '>Usuń</button>' +
       '</div></td>' +
       '</tr>';
@@ -337,6 +367,49 @@ async function confirmDelete(e) {
     showAlert('Użytkownik został usunięty.', 'success');
   } catch (err) {
     errEl.textContent = err.message; errEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Usuń';
+  }
+}
+
+// ── Zmień hasło (admin) ──────────────────────────────────────────────────────
+var adminPassUserId = null;
+
+function openAdminPass(id, username) {
+  adminPassUserId = id;
+  document.getElementById('mAdminPassTitle').textContent = 'Zmień hasło: ' + username;
+  document.getElementById('mAdminPassDesc').textContent  = 'Ustaw nowe hasło dla użytkownika ' + username + '. Nie wymaga znajomości obecnego hasła.';
+  document.getElementById('adminNewPass').value  = '';
+  document.getElementById('adminNewPass2').value = '';
+  document.getElementById('adminNewPassErr').style.display  = 'none';
+  document.getElementById('adminNewPass2Err').style.display = 'none';
+  openModal('mAdminPass');
+  setTimeout(function(){ document.getElementById('adminNewPass').focus(); }, 50);
+}
+
+async function saveAdminPass(e) {
+  e.preventDefault();
+  document.getElementById('adminNewPassErr').style.display  = 'none';
+  document.getElementById('adminNewPass2Err').style.display = 'none';
+
+  var np  = document.getElementById('adminNewPass').value;
+  var np2 = document.getElementById('adminNewPass2').value;
+  var ok  = true;
+
+  if (!np)             { var el = document.getElementById('adminNewPassErr');  el.textContent = 'Pole wymagane';          el.style.display = 'block'; ok = false; }
+  else if (np.length < 6) { var el = document.getElementById('adminNewPassErr');  el.textContent = 'Minimum 6 znaków';   el.style.display = 'block'; ok = false; }
+  if (!np2)            { var el = document.getElementById('adminNewPass2Err'); el.textContent = 'Pole wymagane';          el.style.display = 'block'; ok = false; }
+  else if (np !== np2) { var el = document.getElementById('adminNewPass2Err'); el.textContent = 'Hasła nie są identyczne'; el.style.display = 'block'; ok = false; }
+  if (!ok) return;
+
+  var btn = document.getElementById('adminPassBtn');
+  btn.disabled = true; btn.textContent = 'Zapisywanie…';
+  try {
+    await API.put('/users/' + adminPassUserId, { password: np });
+    closeModal('mAdminPass');
+    showAlert('Hasło użytkownika zostało zmienione.', 'success');
+  } catch (err) {
+    showAlert(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Zmień hasło';
   }
 }
 

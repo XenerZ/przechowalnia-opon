@@ -94,6 +94,15 @@ var API = (function () {
         var u2 = _users.find(function(x){ return x.id===cur.id; });
         return { valid: u2 && u2._password === body.password };
       }
+      if (parts[1] === 'change-password') {
+        var cur = getUser();
+        if (!cur) mockError('Brak sesji', 401);
+        var u2 = _users.find(function(x){ return x.id===cur.id; });
+        if (!u2 || u2._password !== body.currentPassword) mockError('Nieprawidłowe obecne hasło.', 401);
+        if (!body.newPassword || body.newPassword.length < 6) mockError('Nowe hasło musi mieć minimum 6 znaków.', 400);
+        u2._password = body.newPassword;
+        return { success: true };
+      }
     }
 
     /* ── /tires ── */

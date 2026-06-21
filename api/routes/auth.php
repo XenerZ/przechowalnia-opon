@@ -12,6 +12,10 @@ function handle_auth($method, $action, $body) {
             if ($method !== 'POST') { method_not_allowed(); return; }
             auth_verify_password($body);
             break;
+        case 'change-password':
+            if ($method !== 'POST') { method_not_allowed(); return; }
+            auth_change_password($body);
+            break;
         default:
             http_response_code(404);
             echo json_encode(['message' => 'Nie znaleziono.']);
@@ -68,4 +72,37 @@ function auth_verify_password($body) {
     $row  = $stmt->fetch();
 
     echo json_encode(['valid' => (bool)($row && password_verify($password, $row['password']))]);
+}
+
+function auth_change_password($body) {
+    $user        = require_auth();
+    $currentPass = $body['currentPassword'] ?? '';
+    $newPass     = $body['newPassword'] ?? '';
+
+    if (!$currentPass || !$newPass) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Brakuje wymaganych pól.']);
+        return;
+    }
+    if (mb_strlen($newPass) < 6) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Nowe hasło musi mieć minimum 6 znaków.']);
+        return;
+    }
+
+    $pdo  = get_pdo();
+    $stmt = $pdo->prepare('SELECT password FROM users WHERE id = ?');
+    $stmt->execute([$user['id']]);
+    $row  = $stmt->fetch();
+
+    if (!$row || !password_verify($currentPass, $row['password'])) {
+        http_response_code(401);
+        echo json_encode(['message' => 'Nieprawidłowe obecne hasło.']);
+        return;
+    }
+
+    $hash = password_hash($newPass, PASSWORD_BCRYPT, ['cost' => 12]);
+    $pdo->prepare('UPDATE users SET password = ? WHERE id = ?')->execute([$hash, $user['id']]);
+
+    echo json_encode(['success' => true]);
 }
