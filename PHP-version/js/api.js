@@ -200,6 +200,8 @@ var API = (function () {
       method: method, headers: headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    // 401 na /auth/login = złe hasło (rzuć błąd, nie przekierowuj)
+    // 401 na innych endpointach = wygasły token (wyloguj i wróć do logowania)
     if (res.status === 401 && path !== '/auth/login') { removeToken(); removeUser(); window.location.href = 'login.html'; return; }
     var data = await res.json().catch(function(){ return {}; });
     if (!res.ok) throw new Error(data.message || 'Błąd HTTP ' + res.status);
