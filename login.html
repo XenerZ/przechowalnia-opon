@@ -30,7 +30,30 @@
         <input id="password" type="password" placeholder="••••••••">
       </div>
       <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Zaloguj się</button>
+      <div style="text-align:center;margin-top:.75rem">
+        <button type="button" class="btn-link" onclick="openForgot()">Zapomniałem hasła</button>
+      </div>
     </form>
+
+    <!-- Modal: Zapomniałem hasła -->
+    <div id="forgotOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:none;align-items:center;justify-content:center">
+      <div style="background:var(--card-bg);border-radius:var(--radius-lg);padding:2rem;width:100%;max-width:380px;box-shadow:var(--shadow-lg)">
+        <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:.25rem">Resetowanie hasła</h2>
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:1.25rem">Podaj adres e-mail przypisany do konta. Wyślemy link do ustawienia nowego hasła.</p>
+        <form id="forgotForm" onsubmit="submitForgot(event)">
+          <div class="form-group">
+            <label>Adres e-mail</label>
+            <input type="email" id="forgotEmail" placeholder="adres@email.pl" autocomplete="email">
+            <span class="form-error" id="forgotErr" style="display:none"></span>
+          </div>
+          <div id="forgotAlert"></div>
+          <div class="form-actions" style="margin-top:1rem">
+            <button type="button" class="btn btn-outline" onclick="closeForgot()">Anuluj</button>
+            <button type="submit" class="btn btn-primary" id="forgotBtn">Wyślij link</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <!-- Panel diagnostyczny -->
     <div id="diagPanel" style="margin-top:1rem;font-size:.78rem;border-top:1px solid var(--border);padding-top:.75rem;display:none">
@@ -120,6 +143,44 @@ document.querySelector('.auth-brand').addEventListener('click', function() {
   clickCount++;
   if (clickCount >= 3 && !DIAG_SHOWN) { DIAG_SHOWN = true; runDiag(); }
 });
+
+// ── Zapomniałem hasła ─────────────────────────────────────────────────────────
+function openForgot() {
+  document.getElementById('forgotEmail').value = '';
+  document.getElementById('forgotErr').style.display = 'none';
+  document.getElementById('forgotAlert').innerHTML = '';
+  var o = document.getElementById('forgotOverlay');
+  o.style.display = 'flex';
+  setTimeout(function(){ document.getElementById('forgotEmail').focus(); }, 50);
+}
+function closeForgot() {
+  document.getElementById('forgotOverlay').style.display = 'none';
+}
+document.getElementById('forgotOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeForgot();
+});
+
+async function submitForgot(e) {
+  e.preventDefault();
+  var email  = document.getElementById('forgotEmail').value.trim();
+  var errEl  = document.getElementById('forgotErr');
+  var alertEl = document.getElementById('forgotAlert');
+  errEl.style.display = 'none';
+  alertEl.innerHTML   = '';
+
+  if (!email) { errEl.textContent = 'Podaj adres e-mail.'; errEl.style.display = 'block'; return; }
+
+  var btn = document.getElementById('forgotBtn');
+  btn.disabled = true; btn.textContent = 'Wysyłanie…';
+  try {
+    await API.post('/auth/forgot-password', { email: email });
+    alertEl.innerHTML = '<div class="alert alert-success" style="margin-top:.5rem">Jeśli konto istnieje, link resetujący został wysłany. Sprawdź skrzynkę (i folder SPAM).</div>';
+    document.getElementById('forgotForm').style.display = 'none';
+  } catch(ex) {
+    errEl.textContent = ex.message; errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Wyślij link';
+  }
+}
 
 // ── Logowanie ──────────────────────────────────────────────────────────────────
 document.getElementById('loginForm').addEventListener('submit', async function(e) {

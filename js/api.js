@@ -103,6 +103,17 @@ var API = (function () {
         u2._password = body.newPassword;
         return { success: true };
       }
+      if (parts[1] === 'forgot-password') {
+        // Zawsze sukces — nie ujawniamy czy email istnieje
+        return { success: true };
+      }
+      if (parts[1] === 'reset-password') {
+        if (!body.newPassword || body.newPassword.length < 6) mockError('Hasło musi mieć minimum 6 znaków.', 400);
+        if (body.token !== 'mock-reset-token') mockError('Link jest nieważny lub wygasł. Wyślij nowy.', 400);
+        var mu = _users.find(function(x){ return x.id===1; });
+        if (mu) mu._password = body.newPassword;
+        return { success: true };
+      }
     }
 
     /* ── /tires ── */
