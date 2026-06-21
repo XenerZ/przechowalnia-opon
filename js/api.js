@@ -1,9 +1,9 @@
-/* ============================================================
+﻿/* ============================================================
    api.js — warstwa komunikacji z backendem
    MOCK_MODE = true  → działa bez bazy danych (do testów)
    MOCK_MODE = false → wysyła prawdziwe żądania HTTP do /api
    ============================================================ */
-var MOCK_MODE = true;
+var MOCK_MODE = false;
 
 var API = (function () {
 
