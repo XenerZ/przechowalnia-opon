@@ -112,10 +112,11 @@ function action_delete($id) {
 function action_logs($id) {
     $pdo  = get_pdo();
     $rows = $pdo->prepare('
-        SELECT al.id, al.tire_id AS tireId, t.full_name AS clientName, t.license_plate AS licensePlate,
+        SELECT al.id, al.tire_id AS tireId, c.full_name AS clientName, te.license_plate AS licensePlate,
                al.recipient_email AS recipientEmail, al.status, al.error, al.sent_at AS sentAt
         FROM action_logs al
-        LEFT JOIN tires t ON t.id = al.tire_id
+        LEFT JOIN tire_entries te ON te.id = al.tire_id
+        LEFT JOIN customers c ON c.id = te.customer_id
         WHERE al.action_id = ?
         ORDER BY al.sent_at DESC
         LIMIT 100
@@ -151,13 +152,14 @@ function run_days_in_storage($pdo, $action) {
 
     // Opony w przechowalni X lub więcej dni
     $tires = $pdo->prepare("
-        SELECT t.id, t.full_name AS fullName, t.phone, t.license_plate AS licensePlate,
-               t.tire_width AS tireWidth, t.tire_profile AS tireProfile, t.tire_diameter AS tireDiameter,
-               t.location, t.date_in AS dateIn, t.status, t.notes,
-               DATEDIFF(NOW(), t.date_in) AS daysStored
-        FROM tires t
-        WHERE t.status = 'W przechowalni'
-          AND DATEDIFF(NOW(), t.date_in) >= ?
+        SELECT te.id, c.full_name AS fullName, c.phone, te.license_plate AS licensePlate,
+               te.tire_width AS tireWidth, te.tire_profile AS tireProfile, te.tire_diameter AS tireDiameter,
+               te.location, te.date_in AS dateIn, te.status, te.notes,
+               DATEDIFF(NOW(), te.date_in) AS daysStored
+        FROM tire_entries te
+        JOIN customers c ON c.id = te.customer_id
+        WHERE te.status = 'W przechowalni'
+          AND DATEDIFF(NOW(), te.date_in) >= ?
     ");
     $tires->execute([$days]);
     $tires = $tires->fetchAll();
