@@ -171,6 +171,61 @@ if ($step !== 'test_endpoint') {
     </form>';
 }
 echo '</div>';
+
+// ── 5. Diagnostyka konfiguracji e-mail ────────────────────────────────────────
+echo '<div class="card"><h3 style="margin-top:0">5. Konfiguracja resetowania hasła</h3>';
+
+$cfgItems = [
+    'APP_URL'        => ['desc' => 'Adres aplikacji (używany w linku resetującym)',      'placeholder' => 'TWOJA'],
+    'MAIL_FROM'      => ['desc' => 'Adres nadawcy (skrzynka OVH)',                       'placeholder' => 'TWOJA'],
+    'MAIL_FROM_NAME' => ['desc' => 'Nazwa wyświetlana nadawcy',                          'placeholder' => 'ZMIEN'],
+];
+foreach ($cfgItems as $const => $info) {
+    $val = defined($const) ? constant($const) : null;
+    if ($val === null) {
+        echo '<div class="err">❌ ' . $const . ' — <strong>nie zdefiniowano</strong> w config.php</div>';
+    } elseif (str_contains($val, $info['placeholder'])) {
+        echo '<div class="warn">⚠️ ' . $const . ' = <code>' . htmlspecialchars($val) . '</code> — <strong>nadal placeholder!</strong> Uzupełnij w config.php na serwerze.</div>';
+    } else {
+        echo '<div class="ok">✅ ' . $const . ' = <code>' . htmlspecialchars($val) . '</code></div>';
+    }
+}
+
+// Sprawdź czy e-mail użytkownika istnieje w bazie
+if ($step === 'check_user_email' && $email) {
+    try {
+        $pdo = get_pdo();
+        $u   = $pdo->prepare('SELECT id, username, email FROM users WHERE email = ?');
+        $u->execute([$email]);
+        $found = $u->fetch();
+        if ($found) {
+            echo '<div class="ok" style="margin-top:.75rem">✅ Użytkownik znaleziony: <strong>' . htmlspecialchars($found['username']) . '</strong> (email: ' . htmlspecialchars($found['email']) . ')</div>';
+            echo '<div style="font-size:.875rem;margin-top:.4rem">Ten adres e-mail jest zarejestrowany → link resetujący zostanie wysłany.</div>';
+        } else {
+            echo '<div class="err" style="margin-top:.75rem">❌ Brak użytkownika z e-mailem <strong>' . htmlspecialchars($email) . '</strong> w tabeli <code>users</code>.</div>';
+            echo '<div style="font-size:.875rem;margin-top:.4rem">Sprawdź jakie adresy e-mail są wpisane w tabeli users — forgot-password wysyła e-mail <em>tylko</em> gdy email pasuje do konta.</div>';
+            $allEmails = $pdo->query('SELECT username, email FROM users ORDER BY id')->fetchAll();
+            if ($allEmails) {
+                echo '<p style="font-size:.875rem;margin:.5rem 0 .25rem">Zarejestrowane adresy:</p><ul style="font-size:.875rem;margin:0;padding-left:1.2rem">';
+                foreach ($allEmails as $u2) echo '<li>' . htmlspecialchars($u2['username']) . ' → <strong>' . htmlspecialchars($u2['email']) . '</strong></li>';
+                echo '</ul>';
+            }
+        }
+    } catch (Exception $e) {
+        echo '<div class="err" style="margin-top:.75rem">❌ Błąd DB: ' . htmlspecialchars($e->getMessage()) . '</div>';
+    }
+}
+
+if ($step !== 'check_user_email') {
+    echo '<form method="post" style="margin-top:.75rem">
+      <input type="hidden" name="pass" value="' . htmlspecialchars($given) . '">
+      <input type="hidden" name="step" value="check_user_email">
+      <label style="font-size:.875rem">Sprawdź czy e-mail istnieje w bazie:</label>
+      <input type="email" name="email" placeholder="email@domena.pl" required>
+      <button type="submit">Sprawdź</button>
+    </form>';
+}
+echo '</div>';
 ?>
 
 <p style="font-size:.8rem;color:#999;margin-top:2rem">
