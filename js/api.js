@@ -172,6 +172,54 @@ var API = (function () {
       mockError('Nie znaleziono użytkownika', 404);
     }
 
+    /* ── /email-templates ── */
+    if (res === 'email-templates') {
+      var _etpls = window._mockEmailTpls = window._mockEmailTpls || [
+        { id:1, name:'Przypomnienie — długie przechowywanie', subject:'Opony {{nr_rejestracyjny}} czekają na odbiór',
+          htmlContent:'<p>Cześć!</p><p>Opony klienta <strong>{{imie_nazwisko}}</strong> przebywają w przechowalni już <strong>{{dni_w_przechowalni}} dni</strong>.</p><p>Nr rej.: {{nr_rejestracyjny}}, lokalizacja: {{lokalizacja}}</p><p>Prosimy o kontakt.</p>',
+          createdAt:'2025-10-01', updatedAt:'2025-10-01' },
+      ];
+      if (!id) {
+        if (method==='GET') return clone(_etpls).map(function(t){ return {id:t.id,name:t.name,subject:t.subject,createdAt:t.createdAt,updatedAt:t.updatedAt}; });
+        if (method==='POST') {
+          var nt2=Object.assign({id:nid('tpl'),createdAt:new Date().toISOString().slice(0,10),updatedAt:new Date().toISOString().slice(0,10)},body);
+          _etpls.push(nt2); return clone(nt2);
+        }
+      }
+      var eidx=_etpls.findIndex(function(x){return x.id===id;});
+      if (method==='GET'    && eidx!==-1) return clone(_etpls[eidx]);
+      if (method==='PUT'    && eidx!==-1) { Object.assign(_etpls[eidx],body,{updatedAt:new Date().toISOString().slice(0,10)}); return clone(_etpls[eidx]); }
+      if (method==='DELETE' && eidx!==-1) { _etpls.splice(eidx,1); return {ok:true}; }
+      mockError('Nie znaleziono szablonu e-mail', 404);
+    }
+
+    /* ── /actions ── */
+    if (res === 'actions') {
+      var _acts = window._mockActions = window._mockActions || [
+        { id:1, name:'Powiadomienie po 30 dniach', triggerType:'days_in_storage', triggerValue:'30',
+          emailTemplateId:1, emailTemplateName:'Przypomnienie — długie przechowywanie',
+          recipientType:'custom', recipientEmail:'admin@firma.pl', active:1, lastRun:null, createdAt:'2025-11-01' },
+      ];
+      var aid=id; var asub=sub;
+      if (aid && asub==='run' && method==='POST') {
+        var a=_acts.find(function(x){return x.id===aid;});
+        if (!a) mockError('Nie znaleziono akcji',404);
+        a.lastRun = new Date().toISOString().slice(0,19).replace('T',' ');
+        var hits = _tires.filter(function(t){ return t.status==='W przechowalni' && Math.floor((Date.now()-new Date(t.dateIn))/(86400000)) >= +(a.triggerValue||30); });
+        return { sent:hits.length, failed:0, skipped:0, details:hits.map(function(t){ return {tire:t.licensePlate,recipient:a.recipientEmail||'admin',status:'sent',days:Math.floor((Date.now()-new Date(t.dateIn))/(86400000))}; }) };
+      }
+      if (aid && asub==='logs' && method==='GET') { return []; }
+      if (!aid) {
+        if (method==='GET') return clone(_acts);
+        if (method==='POST') { var na=Object.assign({id:nid('tpl'),emailTemplateName:null,lastRun:null,createdAt:new Date().toISOString().slice(0,10)},body); _acts.push(na); return clone(na); }
+      }
+      var aaidx=_acts.findIndex(function(x){return x.id===aid;});
+      if (method==='GET'    && aaidx!==-1) return clone(_acts[aaidx]);
+      if (method==='PUT'    && aaidx!==-1) { Object.assign(_acts[aaidx],body); return clone(_acts[aaidx]); }
+      if (method==='DELETE' && aaidx!==-1) { _acts.splice(aaidx,1); return {ok:true}; }
+      mockError('Nie znaleziono akcji',404);
+    }
+
     /* ── /customers ── */
     if (res === 'customers') {
       var map = {};

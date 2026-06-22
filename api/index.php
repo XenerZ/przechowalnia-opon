@@ -48,6 +48,14 @@ switch ($resource) {
         require_once __DIR__ . '/routes/templates.php';
         handle_templates($method, $id, $body);
         break;
+    case 'email-templates':
+        require_once __DIR__ . '/routes/email-templates.php';
+        handle_email_templates($method, $id, $body);
+        break;
+    case 'actions':
+        require_once __DIR__ . '/routes/actions.php';
+        handle_actions($method, $id, $sub, $body);
+        break;
     default:
         http_response_code(404);
         echo json_encode(['message' => 'Nie znaleziono zasobu.']);

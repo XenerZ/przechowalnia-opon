@@ -5,8 +5,8 @@ var Navbar = (function () {
     { href: 'customers.html', label: 'Klienci' },
   ];
   var ADMIN_LINKS = [
-    { href: 'users.html',     label: 'Użytkownicy' },
     { href: 'templates.html', label: 'Szablony' },
+    { href: 'actions.html',   label: 'Akcje automatyczne' },
   ];
 
   function currentFile() {
@@ -54,6 +54,7 @@ var Navbar = (function () {
               '</div>' +
             '</div>' +
             '<div class="user-dropdown-divider"></div>' +
+            (user && Auth.can(user, 'manage_users') ? '<a href="users.html" class="user-dropdown-item">👥 Użytkownicy</a><div class="user-dropdown-divider"></div>' : '') +
             '<button class="user-dropdown-item" onclick="Navbar.openPasswordChange()">🔒 Zmień hasło</button>' +
             '<button class="user-dropdown-item user-dropdown-item--danger" onclick="Auth.logout()">Wyloguj się</button>' +
           '</div>' +
