@@ -37,13 +37,13 @@ function handle_templates($method, $id, $body) {
 
 function templates_list() {
     $pdo  = get_pdo();
-    $rows = $pdo->query('SELECT id, name, page_size AS pageSize, created_at AS createdAt, updated_at AS updatedAt FROM print_templates ORDER BY id')->fetchAll();
+    $rows = $pdo->query('SELECT id, name, page_size AS pageSize, created_at AS createdAt, updated_at AS updatedAt FROM templates ORDER BY id')->fetchAll();
     echo json_encode($rows);
 }
 
 function templates_get($id) {
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('SELECT id, name, html_content AS htmlContent, page_size AS pageSize, created_at AS createdAt, updated_at AS updatedAt FROM print_templates WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, name, html_content AS htmlContent, page_size AS pageSize, created_at AS createdAt, updated_at AS updatedAt FROM templates WHERE id = ?');
     $stmt->execute([$id]);
     $row  = $stmt->fetch();
     if (!$row) {
@@ -66,11 +66,11 @@ function templates_create($body) {
     }
 
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('INSERT INTO print_templates (name, html_content, page_size) VALUES (?, ?, ?)');
+    $stmt = $pdo->prepare('INSERT INTO templates (name, html_content, page_size) VALUES (?, ?, ?)');
     $stmt->execute([$name, $htmlContent, $pageSize]);
     $newId = $pdo->lastInsertId();
 
-    $row = $pdo->prepare('SELECT id, name, page_size AS pageSize, created_at AS createdAt FROM print_templates WHERE id = ?');
+    $row = $pdo->prepare('SELECT id, name, page_size AS pageSize, created_at AS createdAt FROM templates WHERE id = ?');
     $row->execute([$newId]);
     http_response_code(201);
     echo json_encode($row->fetch());
@@ -78,7 +78,7 @@ function templates_create($body) {
 
 function templates_update($id, $body) {
     $pdo    = get_pdo();
-    $exists = $pdo->prepare('SELECT id FROM print_templates WHERE id = ?');
+    $exists = $pdo->prepare('SELECT id FROM templates WHERE id = ?');
     $exists->execute([$id]);
     if (!$exists->fetch()) {
         http_response_code(404);
@@ -100,16 +100,16 @@ function templates_update($id, $body) {
     }
 
     $vals[] = $id;
-    $pdo->prepare('UPDATE print_templates SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($vals);
+    $pdo->prepare('UPDATE templates SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($vals);
 
-    $row = $pdo->prepare('SELECT id, name, updated_at AS updatedAt FROM print_templates WHERE id = ?');
+    $row = $pdo->prepare('SELECT id, name, updated_at AS updatedAt FROM templates WHERE id = ?');
     $row->execute([$id]);
     echo json_encode($row->fetch());
 }
 
 function templates_delete($id) {
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('DELETE FROM print_templates WHERE id = ?');
+    $stmt = $pdo->prepare('DELETE FROM templates WHERE id = ?');
     $stmt->execute([$id]);
     if ($stmt->rowCount() === 0) {
         http_response_code(404);
