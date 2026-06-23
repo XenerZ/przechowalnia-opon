@@ -1375,7 +1375,14 @@ code {
 
 .navbar-mobile-divider { border-top: 1px solid #1e3d6a; margin: .35rem 0; }
 
-.navbar-mobile-user-info { padding: .7rem 1.25rem; }
+.navbar-mobile-user-section {
+    border-top: 2px solid #1e3d6a;
+    margin-top: .5rem;
+    padding-top: .25rem;
+    background: rgba(0,0,0,.15);
+}
+
+.navbar-mobile-user-info { padding: .75rem 1.25rem .6rem; }
 .navbar-mobile-username { font-weight: 600; color: #c8d8ee; font-size: .9rem; }
 .navbar-mobile-role     { font-size: .78rem; color: #5a7a9a; margin-top: .1rem; }
 

@@ -86,7 +86,7 @@ var Navbar = (function () {
 
       '<div class="navbar-mobile-panel" id="navMobilePanel">' +
         '<div class="navbar-mobile-nav">' + mobileLinksHtml + '</div>' +
-        '<div class="navbar-mobile-divider"></div>' +
+        '<div class="navbar-mobile-user-section">' +
         '<div class="navbar-mobile-user-info">' +
           '<div class="navbar-mobile-username">' + (user ? user.username : '') + '</div>' +
           '<div class="navbar-mobile-role">' + (user ? user.role : '') + '</div>' +
@@ -99,6 +99,7 @@ var Navbar = (function () {
         mobileUsersLink +
         '<button class="navbar-mobile-action" onclick="Navbar.closeMobile();Navbar.openPasswordChange()">🔒 Zmień hasło</button>' +
         '<button class="navbar-mobile-action navbar-mobile-action--danger" onclick="Auth.logout()">Wyloguj się</button>' +
+        '</div>' +
       '</div>';
 
     document.getElementById('navBtn').addEventListener('click', function (e) {
