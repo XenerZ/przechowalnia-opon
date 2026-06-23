@@ -29,12 +29,35 @@ var Navbar = (function () {
       return '<a href="' + l.href + '" class="nav-link' + (active ? ' active' : '') + '">' + l.label + '</a>';
     }).join('');
 
+    var mobileLinksHtml = allLinks.map(function (l) {
+      var active = file === l.href;
+      return '<a href="' + l.href + '" class="navbar-mobile-link' + (active ? ' active' : '') + '" onclick="Navbar.closeMobile()">' + l.label + '</a>';
+    }).join('');
+
+    var themeSwitch =
+      '<div class="theme-switch">' +
+        '<button class="theme-switch-btn' + (theme === 'light' ? ' theme-switch-btn--active' : '') + '" onclick="Navbar.setTheme(\'light\')">Jasny</button>' +
+        '<button class="theme-switch-btn' + (theme === 'dark'  ? ' theme-switch-btn--active' : '') + '" onclick="Navbar.setTheme(\'dark\')">Ciemny</button>' +
+      '</div>';
+
+    var usersLink = (user && Auth.can(user, 'manage_users'))
+      ? '<a href="users.html" class="user-dropdown-item">👥 Użytkownicy</a><div class="user-dropdown-divider"></div>'
+      : '';
+    var mobileUsersLink = (user && Auth.can(user, 'manage_users'))
+      ? '<a href="users.html" class="navbar-mobile-link" onclick="Navbar.closeMobile()">👥 Użytkownicy</a>'
+      : '';
+
     el.innerHTML =
       '<nav class="navbar">' +
         '<div class="navbar-brand">' +
-          '<div class="navbar-logo-wrap"><img src="assets/logo.png" class="navbar-logo-img" onload="this.nextElementSibling.style.display=\'none\'" onerror="this.style.display=\'none\'"><span class="navbar-brand-text">Przechowalnia Opon</span></div>' +
+          '<div class="navbar-logo-wrap">' +
+            '<img src="assets/logo.png" class="navbar-logo-img" onload="this.nextElementSibling.style.display=\'none\'" onerror="this.style.display=\'none\'">' +
+            '<span class="navbar-brand-text">Przechowalnia Opon</span>' +
+          '</div>' +
         '</div>' +
+
         '<div class="navbar-links">' + linksHtml + '</div>' +
+
         '<div class="navbar-user" style="position:relative;margin-left:auto">' +
           '<button class="user-menu-btn" id="navBtn">' +
             '<span class="user-menu-name">' + (user ? user.username : '') + '</span> ' +
@@ -47,29 +70,64 @@ var Navbar = (function () {
             '</div>' +
             '<div class="user-dropdown-divider"></div>' +
             '<div style="padding:0.4rem 0.75rem;display:flex;align-items:center;gap:0.5rem">' +
-              '<span style="font-size:0.72rem;color:var(--text-sub)">Motyw:</span>' +
-              '<div class="theme-switch">' +
-                '<button class="theme-switch-btn' + (theme==='light'?' theme-switch-btn--active':'') + '" onclick="Navbar.setTheme(\'light\')">Jasny</button>' +
-                '<button class="theme-switch-btn' + (theme==='dark'?' theme-switch-btn--active':'') + '" onclick="Navbar.setTheme(\'dark\')">Ciemny</button>' +
-              '</div>' +
+              '<span style="font-size:0.72rem;color:var(--text-sub)">Motyw:</span>' + themeSwitch +
             '</div>' +
             '<div class="user-dropdown-divider"></div>' +
-            (user && Auth.can(user, 'manage_users') ? '<a href="users.html" class="user-dropdown-item">👥 Użytkownicy</a><div class="user-dropdown-divider"></div>' : '') +
+            usersLink +
             '<button class="user-dropdown-item" onclick="Navbar.openPasswordChange()">🔒 Zmień hasło</button>' +
             '<button class="user-dropdown-item user-dropdown-item--danger" onclick="Auth.logout()">Wyloguj się</button>' +
           '</div>' +
         '</div>' +
-      '</nav>';
+
+        '<button class="navbar-hamburger" id="navHamburger" aria-label="Menu" aria-expanded="false">' +
+          '<span></span><span></span><span></span>' +
+        '</button>' +
+      '</nav>' +
+
+      '<div class="navbar-mobile-panel" id="navMobilePanel">' +
+        '<div class="navbar-mobile-nav">' + mobileLinksHtml + '</div>' +
+        '<div class="navbar-mobile-divider"></div>' +
+        '<div class="navbar-mobile-user-info">' +
+          '<div class="navbar-mobile-username">' + (user ? user.username : '') + '</div>' +
+          '<div class="navbar-mobile-role">' + (user ? user.role : '') + '</div>' +
+        '</div>' +
+        '<div class="navbar-mobile-divider"></div>' +
+        '<div style="padding:.55rem 1.25rem;display:flex;align-items:center;gap:.6rem">' +
+          '<span style="font-size:.78rem;color:#8fb3d9">Motyw:</span>' + themeSwitch +
+        '</div>' +
+        '<div class="navbar-mobile-divider"></div>' +
+        mobileUsersLink +
+        '<button class="navbar-mobile-action" onclick="Navbar.closeMobile();Navbar.openPasswordChange()">🔒 Zmień hasło</button>' +
+        '<button class="navbar-mobile-action navbar-mobile-action--danger" onclick="Auth.logout()">Wyloguj się</button>' +
+      '</div>';
 
     document.getElementById('navBtn').addEventListener('click', function (e) {
       e.stopPropagation();
       var m = document.getElementById('navMenu');
       m.style.display = m.style.display === 'none' ? 'block' : 'none';
     });
+
+    document.getElementById('navHamburger').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var panel = document.getElementById('navMobilePanel');
+      var btn   = document.getElementById('navHamburger');
+      var open  = panel.classList.toggle('open');
+      btn.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
     document.addEventListener('click', function () {
       var m = document.getElementById('navMenu');
       if (m) m.style.display = 'none';
+      closeMobile();
     });
+  }
+
+  function closeMobile() {
+    var panel = document.getElementById('navMobilePanel');
+    var btn   = document.getElementById('navHamburger');
+    if (panel) panel.classList.remove('open');
+    if (btn)   { btn.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
   }
 
   function setTheme(t) {
@@ -78,7 +136,7 @@ var Navbar = (function () {
     render();
   }
 
-  // ── Modal zmiany własnego hasła ───────────────────────────────────────────────
+  // ── Modal zmiany hasła ─────────────────────────────────────────────────────────
   function ensurePasswordModal() {
     if (document.getElementById('navMChangePass')) return;
     var div = document.createElement('div');
@@ -152,11 +210,11 @@ var Navbar = (function () {
     var np2  = document.getElementById('navNewPass2').value;
     var ok   = true;
 
-    if (!cur)              { showErr('navCurPassErr',  'Pole wymagane'); ok = false; }
-    if (!np)               { showErr('navNewPassErr',  'Pole wymagane'); ok = false; }
-    else if (np.length < 6){ showErr('navNewPassErr',  'Minimum 6 znaków'); ok = false; }
-    if (!np2)              { showErr('navNewPass2Err', 'Pole wymagane'); ok = false; }
-    else if (np !== np2)   { showErr('navNewPass2Err', 'Hasła nie są identyczne'); ok = false; }
+    if (!cur)               { showErr('navCurPassErr',  'Pole wymagane'); ok = false; }
+    if (!np)                { showErr('navNewPassErr',  'Pole wymagane'); ok = false; }
+    else if (np.length < 6) { showErr('navNewPassErr',  'Minimum 6 znaków'); ok = false; }
+    if (!np2)               { showErr('navNewPass2Err', 'Pole wymagane'); ok = false; }
+    else if (np !== np2)    { showErr('navNewPass2Err', 'Hasła nie są identyczne'); ok = false; }
     if (!ok) return;
 
     var btn = document.getElementById('navPassBtn');
@@ -179,5 +237,12 @@ var Navbar = (function () {
     }
   }
 
-  return { render: render, setTheme: setTheme, openPasswordChange: openPasswordChange, closePasswordChange: closePasswordChange, savePassword: savePassword };
+  return {
+    render:              render,
+    setTheme:            setTheme,
+    closeMobile:         closeMobile,
+    openPasswordChange:  openPasswordChange,
+    closePasswordChange: closePasswordChange,
+    savePassword:        savePassword,
+  };
 })();
