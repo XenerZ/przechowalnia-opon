@@ -30,7 +30,7 @@
           <button class="filter-btn" data-s="Wydane" onclick="setStatus(this)">Wydane</button>
         </div>
         <button class="btn btn-outline btn-sm" id="dateToggleBtn" onclick="toggleDates()">
-          📅 Filtry dat<span class="filters-active-dot" id="dateDot" style="display:none"></span>
+          Filtry dat<span class="filters-active-dot" id="dateDot" style="display:none"></span>
         </button>
       </div>
 
@@ -399,7 +399,7 @@ function render() {
 
     var btns = '<div class="action-btns">';
     if (templates.length) {
-      btns += '<div class="print-dropdown"><button class="btn btn-sm btn-outline btn-print" data-action="print-toggle" data-id="' + t.id + '" title="Drukuj">🖨</button>' +
+      btns += '<div class="print-dropdown"><button class="btn btn-sm btn-outline btn-print" data-action="print-toggle" data-id="' + t.id + '" title="Drukuj">Drukuj</button>' +
         '<div class="print-dropdown__menu" style="display:none"><div class="print-dropdown__header">Wybierz szablon</div>' +
         templates.map(function (tpl) { return '<button class="print-dropdown__item" data-action="print-item" data-id="' + t.id + '" data-tpl="' + tpl.id + '">' + tpl.name + '</button>'; }).join('') +
         '</div></div>';

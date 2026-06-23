@@ -41,10 +41,10 @@ var Navbar = (function () {
       '</div>';
 
     var usersLink = (user && Auth.can(user, 'manage_users'))
-      ? '<a href="users.html" class="user-dropdown-item">👥 Użytkownicy</a><div class="user-dropdown-divider"></div>'
+      ? '<a href="users.html" class="user-dropdown-item">Użytkownicy</a><div class="user-dropdown-divider"></div>'
       : '';
     var mobileUsersLink = (user && Auth.can(user, 'manage_users'))
-      ? '<a href="users.html" class="navbar-mobile-link" onclick="Navbar.closeMobile()">👥 Użytkownicy</a>'
+      ? '<a href="users.html" class="navbar-mobile-link" onclick="Navbar.closeMobile()">Użytkownicy</a>'
       : '';
 
     el.innerHTML =
@@ -74,7 +74,7 @@ var Navbar = (function () {
             '</div>' +
             '<div class="user-dropdown-divider"></div>' +
             usersLink +
-            '<button class="user-dropdown-item" onclick="Navbar.openPasswordChange()">🔒 Zmień hasło</button>' +
+            '<button class="user-dropdown-item" onclick="Navbar.openPasswordChange()">Zmień hasło</button>' +
             '<button class="user-dropdown-item user-dropdown-item--danger" onclick="Auth.logout()">Wyloguj się</button>' +
           '</div>' +
         '</div>' +
@@ -97,7 +97,7 @@ var Navbar = (function () {
         '</div>' +
         '<div class="navbar-mobile-divider"></div>' +
         mobileUsersLink +
-        '<button class="navbar-mobile-action" onclick="Navbar.closeMobile();Navbar.openPasswordChange()">🔒 Zmień hasło</button>' +
+        '<button class="navbar-mobile-action" onclick="Navbar.closeMobile();Navbar.openPasswordChange()">Zmień hasło</button>' +
         '<button class="navbar-mobile-action navbar-mobile-action--danger" onclick="Auth.logout()">Wyloguj się</button>' +
         '</div>' +
       '</div>';

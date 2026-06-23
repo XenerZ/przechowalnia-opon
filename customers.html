@@ -74,7 +74,7 @@ function customerCard(c) {
       '<div class="customer-meta">'+
         (active?'<span class="status-badge status-badge--green">'+active+' w przechowalni</span>':'')+
         '<span class="text-muted" style="font-size:.82rem">'+total+' wpisów</span>'+
-        '<span class="customer-chevron" id="ch-'+c.id+'">▶</span>'+
+        '<span class="customer-chevron" id="ch-'+c.id+'">+</span>'+
       '</div>'+
     '</button>'+
     '<div class="customer-history" id="'+id+'" style="display:none">'+entries+'</div>'+
@@ -106,7 +106,7 @@ function toggle(id) {
   var ch  = document.getElementById('ch-'+cid);
   var open = el.style.display==='none';
   el.style.display  = open?'block':'none';
-  if (ch) ch.textContent = open?'▼':'▶';
+  if (ch) ch.textContent = open?'−':'+';
 }
 </script>
 </body>

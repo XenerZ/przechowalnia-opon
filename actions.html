@@ -111,9 +111,9 @@
       <div id="alertBox"></div>
 
       <div class="tabs">
-        <button class="tab-btn active"  onclick="switchTab('actions')">⚡ Automatyzacje</button>
-        <button class="tab-btn"         onclick="switchTab('email-tpl')">✉️ Szablony e-mail</button>
-        <button class="tab-btn"         onclick="switchTab('smtp')">⚙️ Ustawienia SMTP</button>
+        <button class="tab-btn active"  onclick="switchTab('actions')">Automatyzacje</button>
+        <button class="tab-btn"         onclick="switchTab('email-tpl')">Szablony e-mail</button>
+        <button class="tab-btn"         onclick="switchTab('smtp')">Ustawienia SMTP</button>
       </div>
 
       <!-- ══════════ TAB: Automatyzacje ══════════ -->
@@ -502,7 +502,7 @@ function renderActions() {
         '<div class="auto-meta">'+esc(lastRun)+'</div>' +
         // Buttons
         '<div class="auto-btns">' +
-          '<button class="btn btn-sm btn-outline" title="Uruchom teraz" onclick="runAction('+a.id+',this)">▶</button>' +
+          '<button class="btn btn-sm btn-outline" title="Uruchom teraz" onclick="runAction('+a.id+',this)">Uruchom</button>' +
           '<button class="btn btn-sm btn-outline" onclick="openActionLogs('+a.id+')" title="Logi">Logi</button>' +
           '<button class="btn btn-sm btn-outline" onclick="openActionEdit('+a.id+')" title="Edytuj">Edytuj</button>' +
           '<button class="btn btn-sm btn-danger"  onclick="openDel(\'action\','+a.id+')" title="Usuń">Usuń</button>' +

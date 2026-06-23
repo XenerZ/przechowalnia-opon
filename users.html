@@ -96,8 +96,8 @@
       <p style="margin-bottom:1rem;color:var(--gray-600);font-size:.875rem" id="permsDesc"></p>
       <div class="perm-presets">
         <span style="font-size:.78rem;color:var(--gray-600);font-weight:600">Szybki preset:</span>
-        <button class="btn btn-sm btn-outline" onclick="applyPreset('pracownik')">👤 Pracownik</button>
-        <button class="btn btn-sm btn-outline" onclick="applyPreset('admin')">👑 Administrator</button>
+        <button class="btn btn-sm btn-outline" onclick="applyPreset('pracownik')">Pracownik</button>
+        <button class="btn btn-sm btn-outline" onclick="applyPreset('admin')">Administrator</button>
         <button class="btn btn-sm btn-outline" onclick="applyPreset('none')">Wyczyść</button>
       </div>
       <div class="perm-list" id="permList"></div>
@@ -203,7 +203,7 @@ function render() {
     var perms = (u.permissions || []).map(function (p) {
       return PERM_LABELS[p] ? '<span class="perm-chip">' + PERM_LABELS[p] + '</span>' : '';
     }).join('');
-    var roleLabel = u.role === 'admin' ? '👑 Administrator' : '👤 Pracownik';
+    var roleLabel = u.role === 'admin' ? 'Administrator' : 'Pracownik';
     return '<tr' + (isMe ? ' class="row-highlight"' : '') + '>' +
       '<td><strong>' + u.username + '</strong>' + (isMe ? ' <span class="you-badge">(Ty)</span>' : '') + '</td>' +
       '<td>' + u.email + '</td>' +
@@ -212,8 +212,8 @@ function render() {
       '<td>' + (u.createdAt || '—') + '</td>' +
       '<td><div class="action-btns">' +
         '<button class="btn btn-sm btn-outline" onclick="openEdit(' + u.id + ')">Edytuj</button>' +
-        '<button class="btn btn-sm btn-outline" onclick="openPerms(' + u.id + ')">🔑 Uprawnienia</button>' +
-        '<button class="btn btn-sm btn-outline" onclick="openAdminPass(' + u.id + ',\'' + u.username + '\')">🔒 Hasło</button>' +
+        '<button class="btn btn-sm btn-outline" onclick="openPerms(' + u.id + ')">Uprawnienia</button>' +
+        '<button class="btn btn-sm btn-outline" onclick="openAdminPass(' + u.id + ',\'' + u.username + '\')">Hasło</button>' +
         '<button class="btn btn-sm btn-danger" onclick="openDelete(' + u.id + ',\'' + u.username + '\')" ' + (isMe ? 'disabled title="Nie możesz usunąć własnego konta"' : '') + '>Usuń</button>' +
       '</div></td>' +
       '</tr>';
