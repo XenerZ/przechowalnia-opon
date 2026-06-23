@@ -286,10 +286,9 @@ document.querySelectorAll('th[data-col]').forEach(function (th) {
   });
 });
 
-document.getElementById('tbody').addEventListener('click', function (e) {
+document.addEventListener('click', function (e) {
   var btn = e.target.closest('button[data-action]');
   if (btn) {
-    e.stopPropagation();
     var id  = +btn.dataset.id;
     var t   = tires.find(function (x) { return x.id === id; });
     var act = btn.dataset.action;
@@ -304,16 +303,15 @@ document.getElementById('tbody').addEventListener('click', function (e) {
     if (act === 'print-item') doPrint(id, +btn.dataset.tpl);
     return;
   }
+  if (!e.target.closest('.print-dropdown')) {
+    document.querySelectorAll('.print-dropdown__menu').forEach(function (m) { m.style.display = 'none'; });
+  }
   var row = e.target.closest('tr.row-clickable');
   if (row) {
     var id = +row.dataset.id;
     var t  = tires.find(function (x) { return x.id === id; });
     if (t) openPreview(t);
   }
-});
-
-document.addEventListener('click', function () {
-  document.querySelectorAll('.print-dropdown__menu').forEach(function (m) { m.style.display = 'none'; });
 });
 
 Promise.all([API.get('/tires'), API.get('/templates')]).then(function (r) {
@@ -399,7 +397,7 @@ function render() {
       : '<span class="status-badge status-badge--gray">Wydane</span>';
     var plate = '<span class="plate"><span class="plate-eu"><span class="plate-country">PL</span></span><span class="plate-text">' + t.licensePlate + '</span></span>';
 
-    var btns = '<div class="action-btns" onclick="event.stopPropagation()">';
+    var btns = '<div class="action-btns">';
     if (templates.length) {
       btns += '<div class="print-dropdown"><button class="btn btn-sm btn-outline btn-print" data-action="print-toggle" data-id="' + t.id + '" title="Drukuj">🖨</button>' +
         '<div class="print-dropdown__menu" style="display:none"><div class="print-dropdown__header">Wybierz szablon</div>' +
