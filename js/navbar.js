@@ -20,6 +20,7 @@ var Navbar = (function () {
     var user  = API.getUser();
     var file  = currentFile();
     var theme = localStorage.getItem('po_theme') || 'light';
+    var initial = user ? user.username.charAt(0).toUpperCase() : '?';
 
     var allLinks = LINKS.slice();
     if (user && Auth.can(user, 'manage_users')) allLinks = allLinks.concat(ADMIN_LINKS);
@@ -79,14 +80,21 @@ var Navbar = (function () {
           '</div>' +
         '</div>' +
 
-        '<button class="navbar-hamburger" id="navHamburger" aria-label="Menu" aria-expanded="false">' +
-          '<span></span><span></span><span></span>' +
-        '</button>' +
+        '<div class="navbar-mobile-controls">' +
+          '<button class="navbar-mobile-account-btn" id="navMobileAccountBtn" aria-label="Konto" aria-expanded="false">' + initial + '</button>' +
+          '<button class="navbar-hamburger" id="navHamburger" aria-label="Menu" aria-expanded="false">' +
+            '<span></span><span></span><span></span>' +
+          '</button>' +
+        '</div>' +
       '</nav>' +
 
+      // Panel nawigacyjny
       '<div class="navbar-mobile-panel" id="navMobilePanel">' +
         '<div class="navbar-mobile-nav">' + mobileLinksHtml + '</div>' +
-        '<div class="navbar-mobile-user-section">' +
+      '</div>' +
+
+      // Panel użytkownika
+      '<div class="navbar-mobile-panel" id="navMobileUserPanel">' +
         '<div class="navbar-mobile-user-info">' +
           '<div class="navbar-mobile-username">' + (user ? user.username : '') + '</div>' +
           '<div class="navbar-mobile-role">' + (user ? user.role : '') + '</div>' +
@@ -99,7 +107,6 @@ var Navbar = (function () {
         mobileUsersLink +
         '<button class="navbar-mobile-action" onclick="Navbar.closeMobile();Navbar.openPasswordChange()">Zmień hasło</button>' +
         '<button class="navbar-mobile-action navbar-mobile-action--danger" onclick="Auth.logout()">Wyloguj się</button>' +
-        '</div>' +
       '</div>';
 
     document.getElementById('navBtn').addEventListener('click', function (e) {
@@ -110,11 +117,36 @@ var Navbar = (function () {
 
     document.getElementById('navHamburger').addEventListener('click', function (e) {
       e.stopPropagation();
-      var panel = document.getElementById('navMobilePanel');
-      var btn   = document.getElementById('navHamburger');
-      var open  = panel.classList.toggle('open');
-      btn.classList.toggle('open', open);
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var panel     = document.getElementById('navMobilePanel');
+      var userPanel = document.getElementById('navMobileUserPanel');
+      var btn       = document.getElementById('navHamburger');
+      var accBtn    = document.getElementById('navMobileAccountBtn');
+      var willOpen  = !panel.classList.contains('open');
+      // zamknij panel użytkownika jeśli był otwarty
+      userPanel.classList.remove('open');
+      accBtn.classList.remove('open');
+      accBtn.setAttribute('aria-expanded', 'false');
+      // przełącz panel nawigacyjny
+      panel.classList.toggle('open', willOpen);
+      btn.classList.toggle('open', willOpen);
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+
+    document.getElementById('navMobileAccountBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var panel     = document.getElementById('navMobilePanel');
+      var userPanel = document.getElementById('navMobileUserPanel');
+      var btn       = document.getElementById('navHamburger');
+      var accBtn    = document.getElementById('navMobileAccountBtn');
+      var willOpen  = !userPanel.classList.contains('open');
+      // zamknij panel nawigacyjny jeśli był otwarty
+      panel.classList.remove('open');
+      btn.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+      // przełącz panel użytkownika
+      userPanel.classList.toggle('open', willOpen);
+      accBtn.classList.toggle('open', willOpen);
+      accBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
     });
 
     document.addEventListener('click', function () {
@@ -125,10 +157,14 @@ var Navbar = (function () {
   }
 
   function closeMobile() {
-    var panel = document.getElementById('navMobilePanel');
-    var btn   = document.getElementById('navHamburger');
-    if (panel) panel.classList.remove('open');
-    if (btn)   { btn.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+    var panel     = document.getElementById('navMobilePanel');
+    var userPanel = document.getElementById('navMobileUserPanel');
+    var btn       = document.getElementById('navHamburger');
+    var accBtn    = document.getElementById('navMobileAccountBtn');
+    if (panel)     panel.classList.remove('open');
+    if (userPanel) userPanel.classList.remove('open');
+    if (btn)       { btn.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+    if (accBtn)    { accBtn.classList.remove('open'); accBtn.setAttribute('aria-expanded', 'false'); }
   }
 
   function setTheme(t) {

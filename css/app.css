@@ -1315,9 +1315,17 @@ code {
     font-size: 0.875rem;
 }
 
-/* ===== HAMBURGER BUTTON ===== */
-.navbar-hamburger {
+/* ===== MOBILE CONTROLS (hamburger + account btn) ===== */
+.navbar-mobile-controls {
     display: none;
+    align-items: center;
+    gap: .35rem;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.navbar-hamburger {
+    display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -1326,10 +1334,8 @@ code {
     background: none;
     border: none;
     cursor: pointer;
-    margin-left: auto;
     padding: 8px;
     gap: 5px;
-    flex-shrink: 0;
 }
 .navbar-hamburger span {
     display: block;
@@ -1343,7 +1349,27 @@ code {
 .navbar-hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
 .navbar-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-/* ===== MOBILE PANEL ===== */
+.navbar-mobile-account-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #1e3d6a;
+    border: 1.5px solid #2d5a9e;
+    color: #c8d8ee;
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0;
+    transition: background .15s, border-color .15s;
+    text-transform: uppercase;
+}
+.navbar-mobile-account-btn:hover,
+.navbar-mobile-account-btn.open { background: #2d5a9e; border-color: #4a9eff; color: #fff; }
+
+/* ===== MOBILE PANELS ===== */
 .navbar-mobile-panel {
     display: none;
     position: fixed;
@@ -1374,13 +1400,6 @@ code {
 .navbar-mobile-link.active { color: #fff; border-left-color: #4a9eff; background: rgba(74,158,255,.08); }
 
 .navbar-mobile-divider { border-top: 1px solid #1e3d6a; margin: .35rem 0; }
-
-.navbar-mobile-user-section {
-    border-top: 2px solid #1e3d6a;
-    margin-top: .5rem;
-    padding-top: .25rem;
-    background: rgba(0,0,0,.15);
-}
 
 .navbar-mobile-user-info { padding: .75rem 1.25rem .6rem; }
 .navbar-mobile-username { font-weight: 600; color: #c8d8ee; font-size: .9rem; }
@@ -1419,7 +1438,7 @@ code {
     .navbar-user {
         display: none !important;
     }
-    .navbar-hamburger {
+    .navbar-mobile-controls {
         display: flex;
     }
     .navbar-logo-wrap {
