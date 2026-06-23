@@ -75,30 +75,40 @@ function find_or_create_customer($pdo, $fullName, $phone) {
 }
 
 function tires_list() {
-    $pdo  = get_pdo();
-    $rows = $pdo->query(TIRE_SELECT . ' ORDER BY te.id')->fetchAll();
-    echo json_encode(array_map('format_tire', $rows));
+    try {
+        $pdo  = get_pdo();
+        $rows = $pdo->query(TIRE_SELECT . ' ORDER BY te.id')->fetchAll();
+        echo json_encode(array_map('format_tire', $rows));
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['message' => 'tires_list: ' . $e->getMessage()]);
+    }
 }
 
 function tires_stats() {
-    $pdo      = get_pdo();
-    $total    = $pdo->query('SELECT COUNT(*) AS n FROM tire_entries')->fetch()['n'];
-    $inStore  = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE status = 'W przechowalni'")->fetch()['n'];
-    $released = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE status = 'Wydane'")->fetch()['n'];
+    try {
+        $pdo      = get_pdo();
+        $total    = $pdo->query('SELECT COUNT(*) AS n FROM tire_entries')->fetch()['n'];
+        $inStore  = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE status = 'W przechowalni'")->fetch()['n'];
+        $released = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE status = 'Wydane'")->fetch()['n'];
 
-    $weekStart = 'DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)';
-    $weekEnd   = "DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)";
+        $weekStart = 'DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)';
+        $weekEnd   = "DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)";
 
-    $relWeek = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE date_out >= $weekStart AND date_out < $weekEnd AND status = 'Wydane'")->fetch()['n'];
-    $recWeek = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE date_in  >= $weekStart AND date_in  < $weekEnd")->fetch()['n'];
+        $relWeek = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE date_out >= $weekStart AND date_out < $weekEnd AND status = 'Wydane'")->fetch()['n'];
+        $recWeek = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE date_in  >= $weekStart AND date_in  < $weekEnd")->fetch()['n'];
 
-    echo json_encode([
-        'total'            => (int)$total,
-        'inStorage'        => (int)$inStore,
-        'released'         => (int)$released,
-        'releasedThisWeek' => (int)$relWeek,
-        'receivedThisWeek' => (int)$recWeek,
-    ]);
+        echo json_encode([
+            'total'            => (int)$total,
+            'inStorage'        => (int)$inStore,
+            'released'         => (int)$released,
+            'releasedThisWeek' => (int)$relWeek,
+            'receivedThisWeek' => (int)$recWeek,
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['message' => 'tires_stats: ' . $e->getMessage()]);
+    }
 }
 
 function tires_create($body) {
