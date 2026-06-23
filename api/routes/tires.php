@@ -4,19 +4,21 @@ require_once __DIR__ . '/../helpers/auth.php';
 define('TIRE_SELECT', '
   SELECT
     te.id,
-    c.full_name       AS fullName,
+    c.full_name          AS fullName,
     c.phone,
-    te.license_plate  AS licensePlate,
-    te.tire_width     AS tireWidth,
-    te.tire_profile   AS tireProfile,
-    te.tire_diameter  AS tireDiameter,
-    te.tire_year      AS tireYear,
+    c.email,
+    te.license_plate     AS licensePlate,
+    te.tire_width        AS tireWidth,
+    te.tire_profile      AS tireProfile,
+    te.tire_diameter     AS tireDiameter,
+    te.tire_year         AS tireYear,
     te.location,
-    te.date_in        AS dateIn,
+    te.date_in           AS dateIn,
     te.status,
-    te.date_out       AS dateOut,
+    te.date_out          AS dateOut,
+    te.next_tire_change  AS nextTireChange,
     te.notes,
-    te.customer_id    AS customerId
+    te.customer_id       AS customerId
   FROM tire_entries te
   JOIN customers c ON te.customer_id = c.id
 ');
@@ -46,31 +48,37 @@ function handle_tires($method, $id, $body) {
 
 function format_tire($row) {
     return [
-        'id'           => (int)$row['id'],
-        'fullName'     => $row['fullName'],
-        'phone'        => $row['phone'] ?? '',
-        'licensePlate' => $row['licensePlate'],
-        'tireWidth'    => (int)$row['tireWidth'],
-        'tireProfile'  => (int)$row['tireProfile'],
-        'tireDiameter' => (int)$row['tireDiameter'],
-        'tireYear'     => isset($row['tireYear']) && $row['tireYear'] !== null ? (int)$row['tireYear'] : null,
-        'location'     => $row['location'],
-        'dateIn'       => $row['dateIn']  ? substr($row['dateIn'],  0, 10) : '',
-        'status'       => $row['status'],
-        'dateOut'      => $row['dateOut'] ? substr($row['dateOut'], 0, 10) : '',
-        'notes'        => $row['notes'] ?? '',
-        'customerId'   => (int)$row['customerId'],
+        'id'             => (int)$row['id'],
+        'fullName'       => $row['fullName'],
+        'phone'          => $row['phone'] ?? '',
+        'email'          => $row['email'] ?? '',
+        'licensePlate'   => $row['licensePlate'],
+        'tireWidth'      => (int)$row['tireWidth'],
+        'tireProfile'    => (int)$row['tireProfile'],
+        'tireDiameter'   => (int)$row['tireDiameter'],
+        'tireYear'       => isset($row['tireYear']) && $row['tireYear'] !== null ? (int)$row['tireYear'] : null,
+        'location'       => $row['location'],
+        'dateIn'         => $row['dateIn']  ? substr($row['dateIn'],  0, 10) : '',
+        'status'         => $row['status'],
+        'dateOut'        => $row['dateOut'] ? substr($row['dateOut'], 0, 10) : '',
+        'nextTireChange' => $row['nextTireChange'] ? substr($row['nextTireChange'], 0, 10) : '',
+        'notes'          => $row['notes'] ?? '',
+        'customerId'     => (int)$row['customerId'],
     ];
 }
 
-function find_or_create_customer($pdo, $fullName, $phone) {
+function find_or_create_customer($pdo, $fullName, $phone, $email = null) {
     $stmt = $pdo->prepare("SELECT id FROM customers WHERE full_name = ? AND COALESCE(phone,'') = COALESCE(?,'')");
     $stmt->execute([$fullName, $phone ?: '']);
     $row = $stmt->fetch();
-    if ($row) return $row['id'];
-
-    $stmt = $pdo->prepare('INSERT INTO customers (full_name, phone) VALUES (?, ?)');
-    $stmt->execute([$fullName, $phone ?: null]);
+    if ($row) {
+        if ($email !== null) {
+            $pdo->prepare('UPDATE customers SET email = ? WHERE id = ?')->execute([$email ?: null, $row['id']]);
+        }
+        return $row['id'];
+    }
+    $stmt = $pdo->prepare('INSERT INTO customers (full_name, phone, email) VALUES (?, ?, ?)');
+    $stmt->execute([$fullName, $phone ?: null, $email ?: null]);
     return $pdo->lastInsertId();
 }
 
@@ -112,18 +120,20 @@ function tires_stats() {
 }
 
 function tires_create($body) {
-    $fullName     = trim($body['fullName'] ?? '');
-    $phone        = $body['phone'] ?? '';
-    $licensePlate = trim($body['licensePlate'] ?? '');
-    $tireWidth    = $body['tireWidth']    ?? null;
-    $tireProfile  = $body['tireProfile']  ?? null;
-    $tireDiameter = $body['tireDiameter'] ?? null;
-    $tireYear     = $body['tireYear']     ?? null;
-    $location     = trim($body['location'] ?? '');
-    $dateIn       = $body['dateIn']  ?? '';
-    $status       = $body['status']  ?? 'W przechowalni';
-    $dateOut      = $body['dateOut'] ?: null;
-    $notes        = $body['notes']   ?: null;
+    $fullName       = trim($body['fullName'] ?? '');
+    $phone          = $body['phone'] ?? '';
+    $email          = $body['email'] ?? null;
+    $licensePlate   = trim($body['licensePlate'] ?? '');
+    $tireWidth      = $body['tireWidth']    ?? null;
+    $tireProfile    = $body['tireProfile']  ?? null;
+    $tireDiameter   = $body['tireDiameter'] ?? null;
+    $tireYear       = $body['tireYear']     ?? null;
+    $location       = trim($body['location'] ?? '');
+    $dateIn         = $body['dateIn']  ?? '';
+    $status         = $body['status']  ?? 'W przechowalni';
+    $dateOut        = $body['dateOut'] ?: null;
+    $nextTireChange = $body['nextTireChange'] ?: null;
+    $notes          = $body['notes']   ?: null;
 
     if (!$fullName || !$licensePlate || !$tireWidth || !$tireProfile || !$tireDiameter || !$location || !$dateIn) {
         http_response_code(400);
@@ -134,13 +144,13 @@ function tires_create($body) {
     $pdo = get_pdo();
     $pdo->beginTransaction();
     try {
-        $customerId = find_or_create_customer($pdo, $fullName, $phone);
-        $stmt = $pdo->prepare('INSERT INTO tire_entries (customer_id, license_plate, tire_width, tire_profile, tire_diameter, tire_year, location, date_in, status, date_out, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $customerId = find_or_create_customer($pdo, $fullName, $phone, $email);
+        $stmt = $pdo->prepare('INSERT INTO tire_entries (customer_id, license_plate, tire_width, tire_profile, tire_diameter, tire_year, location, date_in, status, date_out, next_tire_change, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([
             $customerId, $licensePlate,
             (int)$tireWidth, (int)$tireProfile, (int)$tireDiameter,
             $tireYear ? (int)$tireYear : null,
-            $location, $dateIn, $status, $dateOut, $notes,
+            $location, $dateIn, $status, $dateOut, $nextTireChange, $notes,
         ]);
         $newId = $pdo->lastInsertId();
         $pdo->commit();
@@ -170,21 +180,22 @@ function tires_update($id, $body) {
     $pdo->beginTransaction();
     try {
         if (isset($body['fullName'])) {
-            $pdo->prepare('UPDATE customers SET full_name = ?, phone = ? WHERE id = ?')
-                ->execute([$body['fullName'], $body['phone'] ?: null, $entry['customer_id']]);
+            $pdo->prepare('UPDATE customers SET full_name = ?, phone = ?, email = ? WHERE id = ?')
+                ->execute([$body['fullName'], $body['phone'] ?: null, $body['email'] ?: null, $entry['customer_id']]);
         }
 
         $map = [
-            'licensePlate' => ['license_plate', 'str'],
-            'tireWidth'    => ['tire_width',    'int'],
-            'tireProfile'  => ['tire_profile',  'int'],
-            'tireDiameter' => ['tire_diameter', 'int'],
-            'tireYear'     => ['tire_year',     'int_null'],
-            'location'     => ['location',      'str'],
-            'dateIn'       => ['date_in',       'str'],
-            'status'       => ['status',        'str'],
-            'dateOut'      => ['date_out',      'null_str'],
-            'notes'        => ['notes',         'null_str'],
+            'licensePlate'   => ['license_plate',    'str'],
+            'tireWidth'      => ['tire_width',        'int'],
+            'tireProfile'    => ['tire_profile',      'int'],
+            'tireDiameter'   => ['tire_diameter',     'int'],
+            'tireYear'       => ['tire_year',         'int_null'],
+            'location'       => ['location',          'str'],
+            'dateIn'         => ['date_in',           'str'],
+            'status'         => ['status',            'str'],
+            'dateOut'        => ['date_out',          'null_str'],
+            'nextTireChange' => ['next_tire_change',  'null_str'],
+            'notes'          => ['notes',             'null_str'],
         ];
 
         $fields = [];

@@ -111,6 +111,10 @@
             <input id="fPhone" placeholder="np. 600 100 200">
           </div>
           <div class="form-group">
+            <label>E-mail klienta</label>
+            <input type="email" id="fEmail" placeholder="np. jan@example.com">
+          </div>
+          <div class="form-group">
             <label>Nr rejestracyjny *</label>
             <input id="fPlate" placeholder="np. CB 12345" oninput="this.value=this.value.toUpperCase()">
             <span class="form-error" id="errPlate" style="display:none"></span>
@@ -165,6 +169,10 @@
             <label>Data wydania <span id="dateOutStar"></span></label>
             <input type="date" id="fDateOut" disabled>
             <span class="form-error" id="errDateOut" style="display:none"></span>
+          </div>
+          <div class="form-group">
+            <label>Przewid. zmiana opon</label>
+            <input type="date" id="fNextChange">
           </div>
         </div>
 
@@ -468,8 +476,9 @@ function openAdd() {
   editId = null;
   document.getElementById('mEditTitle').textContent = 'Nowy wpis';
   document.getElementById('tireSubmitBtn').textContent = 'Dodaj wpis';
-  ['fName','fPhone','fPlate','fLoc','fNotes'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['fName','fPhone','fEmail','fPlate','fLoc','fNotes'].forEach(function(id){ document.getElementById(id).value=''; });
   ['fW','fP','fD','fYear'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('fNextChange').value = '';
   document.getElementById('fDateIn').value = new Date().toISOString().slice(0,10);
   document.getElementById('fDateOut').value = ''; document.getElementById('fDateOut').disabled = true;
   document.getElementById('fStatus').value = 'W przechowalni';
@@ -482,17 +491,19 @@ function openEdit(t) {
   editId = t.id;
   document.getElementById('mEditTitle').textContent = 'Edytuj wpis';
   document.getElementById('tireSubmitBtn').textContent = 'Zapisz zmiany';
-  document.getElementById('fName').value    = t.fullName || '';
-  document.getElementById('fPhone').value   = t.phone || '';
-  document.getElementById('fPlate').value   = t.licensePlate || '';
+  document.getElementById('fName').value       = t.fullName || '';
+  document.getElementById('fPhone').value      = t.phone || '';
+  document.getElementById('fEmail').value      = t.email || '';
+  document.getElementById('fPlate').value      = t.licensePlate || '';
   document.getElementById('fLoc').value     = t.location || '';
   document.getElementById('fW').value       = t.tireWidth || '';
   document.getElementById('fP').value       = t.tireProfile || '';
   document.getElementById('fD').value       = t.tireDiameter || '';
   document.getElementById('fYear').value    = t.tireYear || '';
-  document.getElementById('fDateIn').value  = t.dateIn || '';
-  document.getElementById('fStatus').value  = t.status || 'W przechowalni';
-  document.getElementById('fDateOut').value = t.dateOut || '';
+  document.getElementById('fDateIn').value     = t.dateIn || '';
+  document.getElementById('fStatus').value     = t.status || 'W przechowalni';
+  document.getElementById('fDateOut').value    = t.dateOut || '';
+  document.getElementById('fNextChange').value = t.nextTireChange || '';
   document.getElementById('fDateOut').disabled = (t.status !== 'Wydane');
   document.getElementById('dateOutStar').textContent = t.status === 'Wydane' ? '*' : '';
   document.getElementById('fNotes').value   = t.notes || '';
@@ -539,9 +550,11 @@ async function saveTire(e) {
   btn.disabled=true; btn.textContent='Zapisywanie…';
   try {
     var data={fullName:name,phone:document.getElementById('fPhone').value.trim(),
+      email:document.getElementById('fEmail').value.trim()||null,
       licensePlate:plate,location:loc,tireWidth:+w,tireProfile:+p,tireDiameter:+d,
       tireYear:document.getElementById('fYear').value?+document.getElementById('fYear').value:null,
       dateIn:dateIn,status:status,dateOut:dateOut||null,
+      nextTireChange:document.getElementById('fNextChange').value||null,
       notes:document.getElementById('fNotes').value.trim()||null};
     var res;
     if(editId){res=await API.put('/tires/'+editId,data);var i=tires.findIndex(function(t){return t.id===editId;});if(i!==-1)tires[i]=res;}

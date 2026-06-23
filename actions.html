@@ -10,55 +10,90 @@
   <link rel="manifest" href="assets/favicon/site.webmanifest">
   <link rel="stylesheet" href="css/app.css">
   <style>
+    /* ── Tabs ── */
     .tabs { display:flex; gap:.25rem; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
     .tab-btn { padding:.55rem 1.1rem; border:none; background:none; font-size:.9rem; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; border-radius:var(--radius) var(--radius) 0 0; transition:color .15s,border-color .15s; }
     .tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:600; }
     .tab-btn:hover:not(.active) { color:var(--text); background:var(--bg-row-hover); }
     .tab-panel { display:none; } .tab-panel.active { display:block; }
 
-    .action-table th { font-size:.78rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; padding:.6rem .9rem; border-bottom:1px solid var(--border); white-space:nowrap; }
-    .action-table td { padding:.7rem .9rem; border-bottom:1px solid var(--border); font-size:.875rem; vertical-align:middle; }
-    .action-table tr:last-child td { border-bottom:none; }
-    .action-table tr:hover td { background:var(--bg-row-hover); }
+    /* ── BaseLinker-style automation list ── */
+    .auto-list { display:flex; flex-direction:column; gap:.5rem; }
+    .auto-row { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:.8rem 1rem; display:flex; align-items:center; gap:1rem; transition:border-color .15s; }
+    .auto-row:hover { border-color:var(--primary); }
+    .auto-row--inactive { opacity:.55; }
 
-    .badge { display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.75rem; font-weight:600; }
-    .badge-green { background:#dcffe4; color:#22863a; }
-    .badge-gray  { background:#f1f3f5; color:#6c757d; }
-    [data-theme="dark"] .badge-green { background:#1a3d2b; color:#56d364; }
-    [data-theme="dark"] .badge-gray  { background:#2d2d2d; color:#adb5bd; }
+    .auto-toggle { flex-shrink:0; }
+    .toggle { position:relative; width:36px; height:20px; display:inline-block; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:var(--border-input,#ced4da); border-radius:10px; transition:.2s; cursor:pointer; }
+    .toggle-slider:before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+    .toggle input:checked + .toggle-slider { background:var(--primary); }
+    .toggle input:checked + .toggle-slider:before { transform:translateX(16px); }
 
+    .auto-if { flex:1; min-width:0; }
+    .auto-then { flex:1; min-width:0; }
+    .auto-section-label { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:.2rem; }
+    .auto-section-text { font-size:.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .auto-arrow { color:var(--text-muted); font-size:1.1rem; flex-shrink:0; }
+    .auto-meta { font-size:.72rem; color:var(--text-muted); min-width:90px; text-align:right; flex-shrink:0; }
+    .auto-btns { display:flex; gap:.3rem; flex-shrink:0; }
+
+    /* ── E-mail template cards ── */
     .tpl-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1rem; }
     .tpl-card  { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.25rem; display:flex; flex-direction:column; gap:.6rem; }
     .tpl-card-name { font-weight:700; font-size:.95rem; }
     .tpl-card-subject { font-size:.82rem; color:var(--text-muted); }
     .tpl-card-actions { display:flex; gap:.5rem; margin-top:.25rem; }
 
+    /* ── SMTP settings ── */
+    .smtp-section { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.5rem; max-width:640px; }
+    .smtp-section h3 { margin:0 0 1rem; font-size:1rem; }
+    .smtp-status { display:flex; align-items:center; gap:.5rem; margin-bottom:1.25rem; padding:.7rem 1rem; border-radius:var(--radius); font-size:.85rem; }
+    .smtp-status--active   { background:#dcffe4; color:#1a7f37; border:1px solid #a8d5b7; }
+    .smtp-status--inactive { background:#f6f8fa; color:var(--text-muted); border:1px solid var(--border); }
+    [data-theme="dark"] .smtp-status--active   { background:#1a3d2b; color:#56d364; border-color:#2d5a3e; }
+    [data-theme="dark"] .smtp-status--inactive { background:#1c1c1c; }
+
+    /* ── Cron info ── */
     .cron-info { background:var(--bg-subtle,#f8f9fa); border:1px solid var(--border); border-radius:var(--radius); padding:.9rem 1.1rem; margin-bottom:1.25rem; font-size:.83rem; color:var(--text-muted); }
     [data-theme="dark"] .cron-info { background:#1c1c1c; }
     .cron-info code { background:var(--border); border-radius:3px; padding:.1rem .35rem; font-size:.78rem; }
 
+    /* ── Modal: action ── */
+    .modal-section { border:1px solid var(--border); border-radius:var(--radius); padding:1rem; }
+    .modal-section-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:.85rem; }
+
+    /* ── Radio group ── */
+    .radio-group { display:flex; flex-direction:column; gap:.45rem; margin-top:.3rem; }
+    .radio-option { display:flex; align-items:center; gap:.55rem; cursor:pointer; padding:.3rem .4rem; border-radius:var(--radius); }
+    .radio-option:hover { background:var(--bg-row-hover); }
+    .radio-option input[type=radio] { width:auto; height:auto; margin:0; flex-shrink:0; accent-color:var(--primary); }
+    .radio-option span { font-size:.875rem; font-weight:400; }
+
+    /* ── Placeholder tags ── */
     .placeholder-list { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.4rem; }
     .placeholder-tag { background:var(--bg-subtle,#f0f4ff); border:1px solid var(--border); border-radius:4px; padding:.1rem .4rem; font-size:.75rem; font-family:monospace; cursor:pointer; color:var(--primary); }
     [data-theme="dark"] .placeholder-tag { background:#1c2333; }
     .placeholder-tag:hover { background:var(--primary); color:#fff; }
 
-    .log-table th { font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; padding:.5rem .75rem; border-bottom:1px solid var(--border); }
-    .log-table td { padding:.55rem .75rem; border-bottom:1px solid var(--border); font-size:.8rem; }
-    .log-table tr:last-child td { border-bottom:none; }
-
-    .toggle-wrap { display:flex; align-items:center; gap:.6rem; }
-    .toggle { position:relative; width:36px; height:20px; }
-    .toggle input { opacity:0; width:0; height:0; }
-    .toggle-slider { position:absolute; inset:0; background:var(--border-input); border-radius:10px; transition:.2s; cursor:pointer; }
-    .toggle-slider:before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
-    .toggle input:checked + .toggle-slider { background:var(--primary); }
-    .toggle input:checked + .toggle-slider:before { transform:translateX(16px); }
-
-    .run-result { margin-top:.75rem; padding:.65rem .9rem; border-radius:var(--radius); font-size:.82rem; }
+    /* ── Run result ── */
+    .run-result { padding:.6rem .9rem; border-radius:var(--radius); font-size:.82rem; margin-top:.5rem; }
     .run-result-ok  { background:#dcffe4; color:#1a3d2b; border:1px solid #a8d5b7; }
     .run-result-err { background:#ffeef0; color:#86181d; border:1px solid #f9c0c5; }
     [data-theme="dark"] .run-result-ok  { background:#1a3d2b; color:#56d364; border-color:#2d5a3e; }
     [data-theme="dark"] .run-result-err { background:#3d1a1a; color:#f97583; border-color:#5a2d2d; }
+
+    /* ── Log table ── */
+    .log-table th { font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; padding:.5rem .75rem; border-bottom:1px solid var(--border); }
+    .log-table td { padding:.55rem .75rem; border-bottom:1px solid var(--border); font-size:.8rem; }
+    .log-table tr:last-child td { border-bottom:none; }
+
+    .badge { display:inline-block; padding:.15rem .55rem; border-radius:999px; font-size:.75rem; font-weight:600; }
+    .badge-green { background:#dcffe4; color:#22863a; }
+    .badge-gray  { background:#f1f3f5; color:#6c757d; }
+    [data-theme="dark"] .badge-green { background:#1a3d2b; color:#56d364; }
+    [data-theme="dark"] .badge-gray  { background:#2d2d2d; color:#adb5bd; }
   </style>
 </head>
 <body>
@@ -75,25 +110,25 @@
 
       <div id="alertBox"></div>
 
-      <!-- Zakładki -->
       <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('actions')">⚡ Akcje</button>
-        <button class="tab-btn" onclick="switchTab('email-tpl')">✉️ Szablony e-mail</button>
+        <button class="tab-btn active"  onclick="switchTab('actions')">⚡ Automatyzacje</button>
+        <button class="tab-btn"         onclick="switchTab('email-tpl')">✉️ Szablony e-mail</button>
+        <button class="tab-btn"         onclick="switchTab('smtp')">⚙️ Ustawienia SMTP</button>
       </div>
 
-      <!-- ── TAB: Akcje ── -->
+      <!-- ══════════ TAB: Automatyzacje ══════════ -->
       <div class="tab-panel active" id="tab-actions">
         <div class="cron-info">
-          <strong>Harmonogram:</strong> Akcje uruchamiają się automatycznie przez cron OVH. Skonfiguruj w panelu OVH: <em>Hosting → Zadania zaplanowane</em>, komenda: <code>php /home/[login]/www/api/cron/check-actions.php</code>, częstotliwość: <em>raz dziennie</em>. Możesz też uruchomić akcję ręcznie przyciskiem ▶.
+          <strong>Harmonogram:</strong> Akcje uruchamiają się przez cron OVH. Skonfiguruj w panelu OVH: <em>Hosting → Zadania zaplanowane</em>, komenda: <code>php /home/[login]/www/api/cron/check-actions.php</code>, częstotliwość: <em>raz dziennie</em>. Możesz też uruchomić akcję ręcznie przyciskiem ▶.
         </div>
         <div class="page-header" style="margin-bottom:1rem;padding:0">
           <span id="actionsCount" style="font-size:.85rem;color:var(--text-muted)"></span>
-          <button class="btn btn-primary" onclick="openActionNew()">+ Dodaj akcję</button>
+          <button class="btn btn-primary" onclick="openActionNew()">+ Dodaj automatyzację</button>
         </div>
         <div id="actionsArea"></div>
       </div>
 
-      <!-- ── TAB: Szablony e-mail ── -->
+      <!-- ══════════ TAB: Szablony e-mail ══════════ -->
       <div class="tab-panel" id="tab-email-tpl">
         <div class="page-header" style="margin-bottom:1rem;padding:0">
           <span id="emailTplCount" style="font-size:.85rem;color:var(--text-muted)"></span>
@@ -101,80 +136,136 @@
         </div>
         <div id="emailTplArea"></div>
       </div>
+
+      <!-- ══════════ TAB: Ustawienia SMTP ══════════ -->
+      <div class="tab-panel" id="tab-smtp">
+        <div class="smtp-section">
+          <h3>Własna skrzynka SMTP</h3>
+          <div id="smtpStatus" class="smtp-status smtp-status--inactive">
+            ○ Brak konfiguracji — używana jest domyślna funkcja mail() serwera
+          </div>
+          <p style="font-size:.83rem;color:var(--text-muted);margin:0 0 1.25rem">
+            Jeśli chcesz wysyłać e-maile z własnej skrzynki (np. firmowej), uzupełnij dane poniżej.
+            Jeśli pole <strong>Hasło</strong> pozostawisz puste, zapisane hasło nie zostanie zmienione.
+          </p>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Serwer SMTP</label>
+              <input id="smHost" placeholder="np. smtp.gmail.com">
+            </div>
+            <div class="form-group">
+              <label>Port</label>
+              <input type="number" id="smPort" placeholder="587" style="max-width:110px">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Szyfrowanie</label>
+            <select id="smEnc" style="max-width:280px">
+              <option value="tls">STARTTLS (zalecane, port 587)</option>
+              <option value="ssl">SSL/TLS (port 465)</option>
+              <option value="none">Brak szyfrowania</option>
+            </select>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Login (username)</label>
+              <input id="smUser" placeholder="login@example.com">
+            </div>
+            <div class="form-group">
+              <label>Hasło</label>
+              <input type="password" id="smPass" placeholder="Zostaw puste — nie zmieniaj">
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Adres nadawcy (From)</label>
+              <input type="email" id="smFromEmail" placeholder="noreply@twojadomena.pl">
+            </div>
+            <div class="form-group">
+              <label>Nazwa nadawcy</label>
+              <input id="smFromName" placeholder="Przechowalnia Opon">
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem;flex-wrap:wrap">
+            <button class="btn btn-outline" onclick="testSmtp()">Wyślij testowy e-mail</button>
+            <button class="btn btn-primary" onclick="saveSmtp()">Zapisz ustawienia</button>
+            <button class="btn btn-outline" id="smClearBtn" onclick="clearSmtp()" style="color:var(--danger);border-color:var(--danger);display:none">Usuń konfigurację</button>
+          </div>
+          <div id="smtpResult" style="margin-top:.85rem"></div>
+        </div>
+      </div>
     </div>
   </main>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     Modal: Dodaj / Edytuj Akcję
-═══════════════════════════════════════════════════════ -->
+<!-- ══════════ Modal: Dodaj / Edytuj Automatyzację ══════════ -->
 <div class="modal-overlay" id="mAction" style="display:none" onclick="overlayClose(event,'mAction')">
   <div class="modal-box" style="max-width:520px">
     <div class="modal-header">
-      <span class="modal-title" id="mActionTitle">Nowa akcja</span>
+      <span class="modal-title" id="mActionTitle">Nowa automatyzacja</span>
       <button class="modal-close" onclick="closeModal('mAction')">✕</button>
     </div>
     <div class="modal-body" style="display:flex;flex-direction:column;gap:1rem">
-      <!-- Nazwa -->
-      <div class="form-group">
-        <label>Nazwa akcji *</label>
-        <input id="aName" placeholder="np. Powiadomienie o oponach po 30 dniach">
-        <span class="form-error" id="aNameErr" style="display:none"></span>
-      </div>
 
-      <!-- Warunek + Liczba dni w jednym rzędzie -->
-      <div style="display:grid;grid-template-columns:1fr auto;gap:.75rem;align-items:start">
-        <div class="form-group">
-          <label>Warunek wyzwalający *</label>
+      <!-- JEŚLI -->
+      <div class="modal-section">
+        <div class="modal-section-title">JEŚLI — warunek wyzwalający</div>
+        <div class="form-group" style="margin-bottom:.75rem">
+          <label>Warunek</label>
           <select id="aTriggerType" onchange="onTriggerChange()">
             <option value="days_in_storage">Opony w przechowalni ≥ X dni</option>
+            <option value="days_before_next_change">Nie więcej niż X dni do przewidywanej zmiany opon</option>
           </select>
         </div>
         <div class="form-group" id="aTriggerValueGroup">
-          <label>Liczba dni *</label>
-          <input type="number" id="aTriggerValue" min="1" max="3650" placeholder="30" style="width:90px">
+          <label id="aTriggerValueLabel">Liczba dni</label>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <input type="number" id="aTriggerValue" min="1" max="3650" placeholder="30" style="width:100px">
+            <span style="font-size:.82rem;color:var(--text-muted)" id="aTriggerValueHint">np. 30 — wyśle, gdy opony stoją 30+ dni</span>
+          </div>
           <span class="form-error" id="aTriggerValueErr" style="display:none"></span>
         </div>
       </div>
 
-      <!-- Szablon e-mail -->
-      <div class="form-group">
-        <label>Szablon e-mail</label>
-        <select id="aTemplate">
-          <option value="">— domyślna treść —</option>
-        </select>
-        <span style="font-size:.78rem;color:var(--text-muted)">Jeśli nie wybrano, użyta zostanie domyślna treść przypomnienia.</span>
-      </div>
-
-      <!-- Odbiorca -->
-      <div class="form-group">
-        <label>Odbiorca *</label>
-        <div style="display:flex;flex-direction:column;gap:.4rem;margin-top:.15rem">
-          <div style="display:flex;align-items:center;gap:.5rem;font-size:.875rem;cursor:pointer">
-            <input type="radio" name="aRecipType" value="custom" id="rCustom" checked onchange="onRecipChange()" style="width:auto;margin:0">
-            <label for="rCustom" style="font-weight:400;font-size:.875rem;cursor:pointer;margin:0">Podany adres e-mail</label>
+      <!-- WTEDY -->
+      <div class="modal-section">
+        <div class="modal-section-title">WTEDY — wyślij e-mail</div>
+        <div class="form-group" style="margin-bottom:.75rem">
+          <label>Szablon e-mail</label>
+          <select id="aTemplate"></select>
+          <span style="font-size:.78rem;color:var(--text-muted)">Bez szablonu zostanie użyta domyślna treść przypomnienia.</span>
+        </div>
+        <div class="form-group">
+          <label>Odbiorca</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="aRecipType" value="customer_email" checked onchange="onRecipChange()">
+              <span>E-mail klienta (z kartoteki opony)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="aRecipType" value="admin" onchange="onRecipChange()">
+              <span>Adres nadawcy (z konfiguracji SMTP / config.php)</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="aRecipType" value="custom" onchange="onRecipChange()">
+              <span>Podany adres e-mail</span>
+            </label>
           </div>
-          <div style="display:flex;align-items:center;gap:.5rem;font-size:.875rem;cursor:pointer">
-            <input type="radio" name="aRecipType" value="admin" id="rAdmin" onchange="onRecipChange()" style="width:auto;margin:0">
-            <label for="rAdmin" style="font-weight:400;font-size:.875rem;cursor:pointer;margin:0">Adres nadawcy (MAIL_FROM z config.php)</label>
-          </div>
+        </div>
+        <div class="form-group" id="aRecipEmailGroup" style="display:none;margin-top:.6rem">
+          <label>Adres e-mail odbiorcy</label>
+          <input type="email" id="aRecipEmail" placeholder="odbiorca@email.pl">
+          <span class="form-error" id="aRecipEmailErr" style="display:none"></span>
         </div>
       </div>
 
-      <!-- E-mail odbiorcy (warunkowe) -->
-      <div class="form-group" id="aRecipEmailGroup">
-        <label>Adres e-mail odbiorcy *</label>
-        <input type="email" id="aRecipEmail" placeholder="odbiorca@email.pl">
-        <span class="form-error" id="aRecipEmailErr" style="display:none"></span>
-      </div>
-
       <!-- Aktywna -->
-      <div style="display:flex;align-items:center;gap:.65rem;padding:.1rem 0">
+      <div style="display:flex;align-items:center;gap:.65rem">
         <label class="toggle" style="margin:0"><input type="checkbox" id="aActive" checked><span class="toggle-slider"></span></label>
-        <span style="font-size:.875rem;color:var(--text)">Akcja aktywna</span>
+        <span style="font-size:.875rem">Automatyzacja aktywna</span>
       </div>
 
-      <div class="form-actions" style="margin-top:.25rem">
+      <div class="form-actions" style="margin-top:.1rem">
         <button class="btn btn-outline" onclick="closeModal('mAction')">Anuluj</button>
         <button class="btn btn-primary" id="aBtn" onclick="saveAction()">Zapisz</button>
       </div>
@@ -182,9 +273,7 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     Modal: Dodaj / Edytuj Szablon e-mail
-═══════════════════════════════════════════════════════ -->
+<!-- ══════════ Modal: Szablon e-mail ══════════ -->
 <div class="modal-overlay" id="mEmailTpl" style="display:none" onclick="overlayClose(event,'mEmailTpl')">
   <div class="modal-box" style="max-width:780px;width:95%">
     <div class="modal-header">
@@ -192,28 +281,29 @@
       <button class="modal-close" onclick="closeModal('mEmailTpl')">✕</button>
     </div>
     <div class="modal-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-        <div class="form-group" style="grid-column:1/-1">
-          <label>Nazwa szablonu *</label>
-          <input id="etName" placeholder="np. Przypomnienie — długie przechowywanie">
-          <span class="form-error" id="etNameErr" style="display:none"></span>
-        </div>
-        <div class="form-group" style="grid-column:1/-1">
-          <label>Temat wiadomości *</label>
-          <input id="etSubject" placeholder="np. Opony {{nr_rejestracyjny}} czekają na odbiór">
-          <span class="form-error" id="etSubjectErr" style="display:none"></span>
-        </div>
+      <div class="form-group">
+        <label>Nazwa szablonu *</label>
+        <input id="etName" placeholder="np. Przypomnienie — długie przechowywanie">
+        <span class="form-error" id="etNameErr" style="display:none"></span>
+      </div>
+      <div class="form-group">
+        <label>Temat wiadomości *</label>
+        <input id="etSubject" placeholder="np. Opony {{nr_rejestracyjny}} czekają na odbiór">
+        <span class="form-error" id="etSubjectErr" style="display:none"></span>
       </div>
       <div class="form-group">
         <label>Dostępne zmienne (kliknij aby wstawić do treści):</label>
         <div class="placeholder-list">
           <span class="placeholder-tag" onclick="insertPlaceholder('{{imie_nazwisko}}')">{{imie_nazwisko}}</span>
           <span class="placeholder-tag" onclick="insertPlaceholder('{{nr_rejestracyjny}}')">{{nr_rejestracyjny}}</span>
+          <span class="placeholder-tag" onclick="insertPlaceholder('{{email_klienta}}')">{{email_klienta}}</span>
           <span class="placeholder-tag" onclick="insertPlaceholder('{{telefon}}')">{{telefon}}</span>
           <span class="placeholder-tag" onclick="insertPlaceholder('{{rozmiar_kol}}')">{{rozmiar_kol}}</span>
           <span class="placeholder-tag" onclick="insertPlaceholder('{{lokalizacja}}')">{{lokalizacja}}</span>
           <span class="placeholder-tag" onclick="insertPlaceholder('{{data_przyjecia}}')">{{data_przyjecia}}</span>
           <span class="placeholder-tag" onclick="insertPlaceholder('{{dni_w_przechowalni}}')">{{dni_w_przechowalni}}</span>
+          <span class="placeholder-tag" onclick="insertPlaceholder('{{data_zmiany}}')">{{data_zmiany}}</span>
+          <span class="placeholder-tag" onclick="insertPlaceholder('{{dni_do_zmiany}}')">{{dni_do_zmiany}}</span>
           <span class="placeholder-tag" onclick="insertPlaceholder('{{status}}')">{{status}}</span>
           <span class="placeholder-tag" onclick="insertPlaceholder('{{uwagi}}')">{{uwagi}}</span>
         </div>
@@ -232,9 +322,7 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     Modal: Podgląd szablonu e-mail
-═══════════════════════════════════════════════════════ -->
+<!-- Modal: Podgląd e-maila -->
 <div class="modal-overlay" id="mEmailPreview" style="display:none" onclick="overlayClose(event,'mEmailPreview')">
   <div class="modal-box" style="max-width:620px;width:95%">
     <div class="modal-header">
@@ -242,27 +330,36 @@
       <button class="modal-close" onclick="closeModal('mEmailPreview')">✕</button>
     </div>
     <div class="modal-body">
-      <div style="background:#f9f9f9;border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:.75rem;font-size:.8rem;color:var(--text-muted)">
+      <div style="background:#f9f9f9;border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:.75rem;font-size:.8rem;color:var(--text-muted)">
         <strong>Temat:</strong> <span id="previewSubject"></span>
       </div>
       <div id="previewBody" style="border:1px solid var(--border);border-radius:var(--radius);padding:1rem;min-height:200px;background:#fff;color:#111"></div>
-      <div style="margin-top:.75rem;font-size:.75rem;color:var(--text-muted)">Podgląd wypełniony przykładowymi danymi.</div>
+      <p style="margin:.6rem 0 0;font-size:.75rem;color:var(--text-muted)">Podgląd wypełniony przykładowymi danymi.</p>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════
-     Modal: Logi akcji
-═══════════════════════════════════════════════════════ -->
+<!-- Modal: Logi akcji -->
 <div class="modal-overlay" id="mLogs" style="display:none" onclick="overlayClose(event,'mLogs')">
   <div class="modal-box" style="max-width:720px;width:95%">
     <div class="modal-header">
-      <span class="modal-title" id="mLogsTitle">Logi akcji</span>
+      <span class="modal-title" id="mLogsTitle">Logi automatyzacji</span>
       <button class="modal-close" onclick="closeModal('mLogs')">✕</button>
     </div>
     <div class="modal-body">
       <div id="logsContent"></div>
     </div>
+  </div>
+</div>
+
+<!-- Modal: Wynik ręcznego uruchomienia -->
+<div class="modal-overlay" id="mRunResult" style="display:none" onclick="overlayClose(event,'mRunResult')">
+  <div class="modal-box" style="max-width:500px">
+    <div class="modal-header">
+      <span class="modal-title">Wynik uruchomienia</span>
+      <button class="modal-close" onclick="closeModal('mRunResult')">✕</button>
+    </div>
+    <div class="modal-body" id="mRunResultBody"></div>
   </div>
 </div>
 
@@ -283,6 +380,27 @@
   </div>
 </div>
 
+<!-- Modal: Test SMTP — adres e-mail -->
+<div class="modal-overlay" id="mSmtpTest" style="display:none" onclick="overlayClose(event,'mSmtpTest')">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">Testowy e-mail</span>
+      <button class="modal-close" onclick="closeModal('mSmtpTest')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Wyślij testowego e-maila na adres:</label>
+        <input type="email" id="smtpTestEmail" placeholder="twoj@email.pl">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="closeModal('mSmtpTest')">Anuluj</button>
+        <button class="btn btn-primary" id="smtpTestBtn" onclick="sendSmtpTest()">Wyślij</button>
+      </div>
+      <div id="smtpTestResult" style="margin-top:.75rem"></div>
+    </div>
+  </div>
+</div>
+
 <script src="js/api.js?v=2"></script>
 <script src="js/auth.js?v=2"></script>
 <script src="js/navbar.js?v=2"></script>
@@ -290,266 +408,295 @@
 (function(){ var t=localStorage.getItem('po_theme')||'light'; document.documentElement.setAttribute('data-theme',t); })();
 var me = Auth.requireAuth();
 if (!me) throw new Error('no auth');
-if (!Auth.can(me, 'manage_users')) { window.location.href = 'dashboard.html'; throw new Error(); }
+if (!Auth.can(me,'manage_users')) { window.location.href='dashboard.html'; throw new Error(); }
 Navbar.render();
 
-// ── Stan ────────────────────────────────────────────────────────────────────────
-var actions      = [];
-var emailTpls    = [];
+// ── Stan ──────────────────────────────────────────────────
+var actions   = [];
+var emailTpls = [];
 var editActionId = null;
 var editTplId    = null;
-var delId        = null;
-var delType      = null; // 'action' | 'tpl'
+var delId = null, delType = null;
+
+var TRIGGER_LABELS = {
+  days_in_storage:         'Opony w przechowalni ≥ {v} dni',
+  days_before_next_change: 'Nie więcej niż {v} dni do zmiany opon',
+};
+var RECIP_LABELS = {
+  customer_email: 'e-mail klienta',
+  admin:          'adres nadawcy',
+  custom:         '{email}',
+};
 
 var SAMPLE = {
   fullName:'Jan Kowalski', licensePlate:'CB 12345', phone:'600 100 200',
+  email:'jan.kowalski@example.com',
   tireWidth:205, tireProfile:55, tireDiameter:16, location:'A-1',
-  dateIn:'2025-10-01', status:'W przechowalni', notes:'Zimowe', daysStored:45
+  dateIn:'2025-10-01', status:'W przechowalni', notes:'Zimowe',
+  daysStored:45, nextTireChange:'2026-11-01', daysToChange:12
 };
 
-var TRIGGER_LABELS = { days_in_storage: 'Opony w przechowalni ≥ X dni' };
-var RECIP_LABELS   = { custom:'Podany e-mail', admin:'MAIL_FROM (config)' };
-
-// ── Tabs ────────────────────────────────────────────────────────────────────────
+// ── Tabs ──────────────────────────────────────────────────
+var TAB_IDS = ['actions','email-tpl','smtp'];
 function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(function(b,i){ b.classList.toggle('active', (tab==='actions'?i===0:i===1)); });
-  document.getElementById('tab-actions').classList.toggle('active', tab==='actions');
-  document.getElementById('tab-email-tpl').classList.toggle('active', tab==='email-tpl');
+  document.querySelectorAll('.tab-btn').forEach(function(b,i){ b.classList.toggle('active', TAB_IDS[i]===tab); });
+  TAB_IDS.forEach(function(id){ document.getElementById('tab-'+id).classList.toggle('active', id===tab); });
+  if (tab==='smtp') loadSmtp();
 }
 
-// ── Modal helpers ───────────────────────────────────────────────────────────────
+// ── Modals ────────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id).style.display='flex'; }
 function closeModal(id) { document.getElementById(id).style.display='none'; }
 function overlayClose(e,id){ if(e.target===e.currentTarget) closeModal(id); }
 
-// ── Alert ───────────────────────────────────────────────────────────────────────
+// ── Alert ─────────────────────────────────────────────────
 function showAlert(msg, type) {
-  var box = document.getElementById('alertBox');
-  box.innerHTML = '<div class="alert alert-' + type + '">' + msg + '</div>';
-  setTimeout(function(){ box.innerHTML=''; }, 4000);
+  var box=document.getElementById('alertBox');
+  box.innerHTML='<div class="alert alert-'+type+'">'+msg+'</div>';
+  setTimeout(function(){ box.innerHTML=''; },4000);
 }
 
-// ── Ładowanie danych ────────────────────────────────────────────────────────────
+// ── Ładowanie ─────────────────────────────────────────────
 async function loadAll() {
   try {
-    var [a, t] = await Promise.all([API.get('/actions'), API.get('/email-templates')]);
-    actions   = a;
-    emailTpls = t;
-    renderActions();
-    renderEmailTpls();
-  } catch(e) { showAlert(e.message, 'error'); }
+    var [a,t] = await Promise.all([API.get('/actions'), API.get('/email-templates')]);
+    actions=a; emailTpls=t;
+    renderActions(); renderEmailTpls();
+  } catch(e) { showAlert(e.message,'error'); }
 }
 loadAll();
 
-// ════════════════════════════════════════════════════════
-// AKCJE
-// ════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// AUTOMATYZACJE — BaseLinker style
+// ══════════════════════════════════════════════════════════
+function triggerText(a) {
+  var tpl = TRIGGER_LABELS[a.triggerType] || a.triggerType;
+  return tpl.replace('{v}', '<strong>'+(a.triggerValue||'?')+'</strong>');
+}
+function actionText(a) {
+  var tpl  = a.emailTemplateName ? '"'+esc(a.emailTemplateName)+'"' : '<em>domyślna treść</em>';
+  var recip = RECIP_LABELS[a.recipientType] || a.recipientType;
+  if (a.recipientType==='custom') recip = esc(a.recipientEmail||'—');
+  return 'Wyślij e-mail: '+tpl+' → '+recip;
+}
+
 function renderActions() {
-  document.getElementById('actionsCount').textContent = actions.length + ' akcji';
   var area = document.getElementById('actionsArea');
+  document.getElementById('actionsCount').textContent = actions.length
+    ? actions.length + (actions.length===1?' automatyzacja':' automatyzacje')
+    : '';
   if (!actions.length) {
-    area.innerHTML = '<div class="empty-state"><p>Brak skonfigurowanych akcji. Kliknij „+ Dodaj akcję".</p></div>';
+    area.innerHTML='<div class="empty-state"><p>Brak automatyzacji. Kliknij „+ Dodaj automatyzację".</p></div>';
     return;
   }
-  area.innerHTML =
-    '<div class="table-wrap"><table class="action-table" style="width:100%">' +
-    '<thead><tr>' +
-      '<th>Nazwa</th><th>Warunek</th><th>Szablon</th><th>Odbiorca</th><th>Status</th><th>Ostatnie uruchomienie</th><th></th>' +
-    '</tr></thead><tbody>' +
+  area.innerHTML = '<div class="auto-list">' +
     actions.map(function(a) {
-      var trigLabel = (TRIGGER_LABELS[a.triggerType] || a.triggerType).replace('X', '<strong>' + (a.triggerValue||'?') + '</strong>');
-      var tplLabel  = a.emailTemplateName || '<em style="color:var(--text-muted)">domyślna</em>';
-      var recip     = a.recipientType === 'admin' ? RECIP_LABELS.admin : (a.recipientEmail || '—');
-      var badge     = a.active ? '<span class="badge badge-green">Aktywna</span>' : '<span class="badge badge-gray">Nieaktywna</span>';
-      var lastRun   = a.lastRun ? a.lastRun.slice(0,16).replace('T',' ') : '<span style="color:var(--text-muted)">Nigdy</span>';
-      return '<tr>' +
-        '<td><strong>' + esc(a.name) + '</strong></td>' +
-        '<td>' + trigLabel + '</td>' +
-        '<td>' + tplLabel + '</td>' +
-        '<td style="font-size:.8rem">' + esc(recip) + '</td>' +
-        '<td>' + badge + '</td>' +
-        '<td style="font-size:.8rem">' + lastRun + '</td>' +
-        '<td style="white-space:nowrap">' +
-          '<button class="btn btn-sm btn-outline" title="Uruchom teraz" onclick="runAction(' + a.id + ',this)">▶</button> ' +
-          '<button class="btn btn-sm btn-outline" onclick="openActionLogs(' + a.id + ',\'' + esc(a.name) + '\')">Logi</button> ' +
-          '<button class="btn btn-sm btn-outline" onclick="openActionEdit(' + a.id + ')">Edytuj</button> ' +
-          '<button class="btn btn-sm btn-danger" onclick="openDel(\'action\',' + a.id + ',\'' + esc(a.name) + '\')">Usuń</button>' +
-        '</td>' +
-      '</tr>';
-    }).join('') +
-    '</tbody></table></div>';
+      var lastRun = a.lastRun ? a.lastRun.slice(0,16).replace('T',' ') : 'Nigdy';
+      return '<div class="auto-row'+(a.active?'':' auto-row--inactive')+'" id="arow-'+a.id+'">' +
+        // Toggle
+        '<div class="auto-toggle"><label class="toggle" title="'+(a.active?'Aktywna — kliknij aby wyłączyć':'Nieaktywna — kliknij aby włączyć')+'"><input type="checkbox"'+(a.active?' checked':'')+' onchange="toggleActive('+a.id+',this)"><span class="toggle-slider"></span></label></div>' +
+        // IF
+        '<div class="auto-if"><div class="auto-section-label">Jeśli</div><div class="auto-section-text">'+triggerText(a)+'</div></div>' +
+        // Arrow
+        '<div class="auto-arrow">→</div>' +
+        // THEN
+        '<div class="auto-then"><div class="auto-section-label">Wtedy</div><div class="auto-section-text">'+actionText(a)+'</div></div>' +
+        // Meta
+        '<div class="auto-meta">'+esc(lastRun)+'</div>' +
+        // Buttons
+        '<div class="auto-btns">' +
+          '<button class="btn btn-sm btn-outline" title="Uruchom teraz" onclick="runAction('+a.id+',this)">▶</button>' +
+          '<button class="btn btn-sm btn-outline" onclick="openActionLogs('+a.id+')" title="Logi">Logi</button>' +
+          '<button class="btn btn-sm btn-outline" onclick="openActionEdit('+a.id+')" title="Edytuj">Edytuj</button>' +
+          '<button class="btn btn-sm btn-danger"  onclick="openDel(\'action\','+a.id+')" title="Usuń">Usuń</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
 }
 
 function openActionNew() {
   editActionId = null;
-  document.getElementById('mActionTitle').textContent = 'Nowa akcja';
-  document.getElementById('aName').value         = '';
+  document.getElementById('mActionTitle').textContent = 'Nowa automatyzacja';
   document.getElementById('aTriggerType').value  = 'days_in_storage';
   document.getElementById('aTriggerValue').value = '30';
   document.getElementById('aRecipEmail').value   = '';
   document.getElementById('aActive').checked     = true;
-  document.querySelector('input[name=aRecipType][value=custom]').checked = true;
+  document.querySelector('input[name=aRecipType][value=customer_email]').checked = true;
   onTriggerChange(); onRecipChange();
   populateTplSelect(null);
-  clearFormErrors(['aNameErr','aTriggerValueErr','aRecipEmailErr']);
+  clearFormErrors(['aTriggerValueErr','aRecipEmailErr']);
   openModal('mAction');
-  setTimeout(function(){ document.getElementById('aName').focus(); }, 50);
+  setTimeout(function(){ document.getElementById('aTriggerValue').focus(); },50);
 }
 
 function openActionEdit(id) {
   var a = actions.find(function(x){ return x.id===id; });
   if (!a) return;
   editActionId = id;
-  document.getElementById('mActionTitle').textContent = 'Edytuj akcję';
-  document.getElementById('aName').value         = a.name;
+  document.getElementById('mActionTitle').textContent = 'Edytuj automatyzację';
   document.getElementById('aTriggerType').value  = a.triggerType;
   document.getElementById('aTriggerValue').value = a.triggerValue || '';
   document.getElementById('aRecipEmail').value   = a.recipientEmail || '';
   document.getElementById('aActive').checked     = !!a.active;
-  document.querySelector('input[name=aRecipType][value=' + (a.recipientType||'custom') + ']').checked = true;
+  var recVal = a.recipientType || 'customer_email';
+  var rb = document.querySelector('input[name=aRecipType][value='+recVal+']');
+  if (rb) rb.checked = true;
   onTriggerChange(); onRecipChange();
   populateTplSelect(a.emailTemplateId);
-  clearFormErrors(['aNameErr','aTriggerValueErr','aRecipEmailErr']);
+  clearFormErrors(['aTriggerValueErr','aRecipEmailErr']);
   openModal('mAction');
 }
 
 function populateTplSelect(selected) {
-  var sel = document.getElementById('aTemplate');
-  sel.innerHTML = '<option value="">— domyślna treść —</option>' +
-    emailTpls.map(function(t){ return '<option value="' + t.id + '"' + (t.id==selected?' selected':'') + '>' + esc(t.name) + '</option>'; }).join('');
+  document.getElementById('aTemplate').innerHTML =
+    '<option value="">— domyślna treść —</option>' +
+    emailTpls.map(function(t){
+      return '<option value="'+t.id+'"'+(t.id==selected?' selected':'')+'>'+esc(t.name)+'</option>';
+    }).join('');
 }
 
 function onTriggerChange() {
   var type = document.getElementById('aTriggerType').value;
-  document.getElementById('aTriggerValueGroup').style.display = type === 'days_in_storage' ? '' : 'none';
+  var hints = {
+    days_in_storage:         'np. 30 — wyśle gdy opony stoją 30+ dni',
+    days_before_next_change: 'np. 7 — wyśle gdy do zmiany pozostało ≤ 7 dni',
+  };
+  var labels = {
+    days_in_storage:         'Liczba dni w przechowalni',
+    days_before_next_change: 'Dni przed datą zmiany',
+  };
+  document.getElementById('aTriggerValueLabel').textContent = labels[type] || 'Liczba dni';
+  document.getElementById('aTriggerValueHint').textContent  = hints[type]  || '';
 }
 
 function onRecipChange() {
   var type = document.querySelector('input[name=aRecipType]:checked').value;
-  document.getElementById('aRecipEmailGroup').style.display = type === 'custom' ? '' : 'none';
+  document.getElementById('aRecipEmailGroup').style.display = type==='custom' ? '' : 'none';
 }
 
 async function saveAction() {
-  clearFormErrors(['aNameErr','aTriggerValueErr','aRecipEmailErr']);
-  var name        = document.getElementById('aName').value.trim();
+  clearFormErrors(['aTriggerValueErr','aRecipEmailErr']);
   var triggerType = document.getElementById('aTriggerType').value;
   var triggerVal  = document.getElementById('aTriggerValue').value.trim();
   var tplId       = document.getElementById('aTemplate').value || null;
   var recipType   = document.querySelector('input[name=aRecipType]:checked').value;
   var recipEmail  = document.getElementById('aRecipEmail').value.trim();
   var active      = document.getElementById('aActive').checked;
-  var ok          = true;
+  var ok = true;
 
-  if (!name) { showFieldErr('aNameErr','Pole wymagane'); ok=false; }
-  if (triggerType==='days_in_storage' && (!triggerVal || +triggerVal<1)) { showFieldErr('aTriggerValueErr','Podaj liczbę dni (min. 1)'); ok=false; }
+  if (!triggerVal || +triggerVal < 1) { showFieldErr('aTriggerValueErr','Podaj liczbę dni (min. 1)'); ok=false; }
   if (recipType==='custom' && !recipEmail) { showFieldErr('aRecipEmailErr','Podaj adres e-mail'); ok=false; }
   if (!ok) return;
 
-  var btn = document.getElementById('aBtn'); btn.disabled=true; btn.textContent='Zapisywanie…';
-  var payload = { name:name, triggerType:triggerType, triggerValue:triggerVal||null, emailTemplateId:tplId?+tplId:null, recipientType:recipType, recipientEmail:recipEmail||null, active:active };
+  var btn=document.getElementById('aBtn'); btn.disabled=true; btn.textContent='Zapisywanie…';
+  var payload = { triggerType:triggerType, triggerValue:triggerVal, emailTemplateId:tplId?+tplId:null, recipientType:recipType, recipientEmail:recipEmail||null, active:active };
   try {
     var saved = editActionId
       ? await API.put('/actions/'+editActionId, payload)
       : await API.post('/actions', payload);
     if (editActionId) { var i=actions.findIndex(function(x){return x.id===editActionId;}); if(i!==-1) actions[i]=saved; }
-    else { actions.push(saved); }
+    else actions.push(saved);
     closeModal('mAction'); renderActions();
-    showAlert('Akcja została zapisana.','success');
+    showAlert('Automatyzacja zapisana.','success');
   } catch(e) { showAlert(e.message,'error'); }
   finally { btn.disabled=false; btn.textContent='Zapisz'; }
 }
 
+async function toggleActive(id, checkbox) {
+  var a = actions.find(function(x){ return x.id===id; });
+  if (!a) return;
+  try {
+    var saved = await API.put('/actions/'+id, {
+      triggerType:a.triggerType, triggerValue:a.triggerValue,
+      emailTemplateId:a.emailTemplateId, recipientType:a.recipientType,
+      recipientEmail:a.recipientEmail, active:checkbox.checked
+    });
+    var i = actions.findIndex(function(x){ return x.id===id; });
+    if (i!==-1) actions[i]=saved;
+    renderActions();
+  } catch(e) {
+    checkbox.checked = !checkbox.checked; // revert
+    showAlert(e.message,'error');
+  }
+}
+
 async function runAction(id, btn) {
-  var orig = btn.textContent;
-  btn.disabled=true; btn.textContent='…';
+  var orig=btn.textContent; btn.disabled=true; btn.textContent='…';
   try {
     var r = await API.post('/actions/'+id+'/run', {});
-    var cls = r.failed>0 ? 'run-result-err' : 'run-result-ok';
-    var msg = 'Wysłano: <strong>' + r.sent + '</strong>, błędy: <strong>' + r.failed + '</strong>, pominięto: <strong>' + r.skipped + '</strong>';
-    if (r.details && r.details.length) {
-      msg += '<ul style="margin:.4rem 0 0;padding-left:1.2rem">' +
-        r.details.map(function(d){ return '<li>' + esc(d.tire) + ' → ' + esc(d.recipient) + ' (' + d.status + ', ' + d.days + ' dni)'; }).join('') + '</ul>';
-    }
-    // Pokaż wynik inline pod przyciskiem
-    var tr = btn.closest('tr');
-    var existing = tr.querySelector('.run-result');
-    if (existing) existing.remove();
-    var td = document.createElement('td');
-    td.colSpan = 7; td.innerHTML = '<div class="run-result ' + cls + '">' + msg + '</div>';
-    var newRow = tr.parentNode.insertRow(tr.rowIndex);
-    newRow.appendChild(td);
-    setTimeout(function(){ if(newRow.parentNode) newRow.parentNode.removeChild(newRow); }, 8000);
-    // Odśwież last_run
+    var ok = r.failed===0;
+    var body = '<div class="run-result '+(ok?'run-result-ok':'run-result-err')+'">' +
+      'Wysłano: <strong>'+r.sent+'</strong>, błędy: <strong>'+r.failed+'</strong>, pominięto: <strong>'+r.skipped+'</strong>' +
+      (r.details&&r.details.length ? '<ul style="margin:.4rem 0 0;padding-left:1.2rem">'+
+        r.details.map(function(d){ return '<li>'+esc(d.tire)+' → '+esc(d.recipient)+' ('+esc(d.status)+')'; }).join('')+'</ul>' : '') +
+      '</div>';
+    document.getElementById('mRunResultBody').innerHTML = body +
+      '<div class="form-actions" style="margin-top:.75rem"><button class="btn btn-outline" onclick="closeModal(\'mRunResult\')">Zamknij</button></div>';
     var a = actions.find(function(x){ return x.id===id; });
     if (a) { a.lastRun = new Date().toISOString(); renderActions(); }
+    openModal('mRunResult');
   } catch(e) { showAlert(e.message,'error'); }
   finally { btn.disabled=false; btn.textContent=orig; }
 }
 
-async function openActionLogs(id, name) {
-  document.getElementById('mLogsTitle').textContent = 'Logi: ' + name;
+async function openActionLogs(id) {
+  document.getElementById('mLogsTitle').textContent = 'Logi automatyzacji';
   document.getElementById('logsContent').innerHTML = '<p style="color:var(--text-muted)">Ładowanie…</p>';
   openModal('mLogs');
   try {
     var logs = await API.get('/actions/'+id+'/logs');
-    if (!logs.length) { document.getElementById('logsContent').innerHTML = '<p style="color:var(--text-muted)">Brak logów.</p>'; return; }
+    if (!logs.length) { document.getElementById('logsContent').innerHTML='<p style="color:var(--text-muted)">Brak logów.</p>'; return; }
     document.getElementById('logsContent').innerHTML =
-      '<div class="table-wrap" style="max-height:420px;overflow-y:auto"><table class="log-table" style="width:100%">' +
+      '<div style="max-height:420px;overflow-y:auto"><table class="log-table" style="width:100%">' +
       '<thead><tr><th>Data</th><th>Nr rej.</th><th>Klient</th><th>Odbiorca</th><th>Status</th></tr></thead><tbody>' +
       logs.map(function(l){
-        var statusCls = l.status==='sent' ? 'badge-green' : 'badge-gray';
-        return '<tr>' +
-          '<td>' + (l.sentAt||'').slice(0,16).replace('T',' ') + '</td>' +
-          '<td>' + esc(l.licensePlate||'—') + '</td>' +
-          '<td>' + esc(l.clientName||'—') + '</td>' +
-          '<td>' + esc(l.recipientEmail||'—') + '</td>' +
-          '<td><span class="badge ' + statusCls + '">' + esc(l.status) + '</span>' + (l.error ? ' <small style="color:var(--danger)">' + esc(l.error) + '</small>' : '') + '</td>' +
+        var cls = l.status==='sent'?'badge-green':'badge-gray';
+        return '<tr>'+
+          '<td>'+(l.sentAt||'').slice(0,16).replace('T',' ')+'</td>'+
+          '<td>'+esc(l.licensePlate||'—')+'</td>'+
+          '<td>'+esc(l.clientName||'—')+'</td>'+
+          '<td>'+esc(l.recipientEmail||'—')+'</td>'+
+          '<td><span class="badge '+cls+'">'+esc(l.status)+'</span>'+(l.error?'<small style="color:var(--danger);margin-left:.35rem">'+esc(l.error)+'</small>':'')+'</td>'+
         '</tr>';
-      }).join('') +
+      }).join('')+
       '</tbody></table></div>';
-  } catch(e) { document.getElementById('logsContent').innerHTML = '<p class="alert alert-error">' + e.message + '</p>'; }
+  } catch(e) { document.getElementById('logsContent').innerHTML='<p class="alert alert-error">'+e.message+'</p>'; }
 }
 
-// ════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // SZABLONY E-MAIL
-// ════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 function renderEmailTpls() {
-  document.getElementById('emailTplCount').textContent = emailTpls.length + ' szablonów';
-  var area = document.getElementById('emailTplArea');
-  if (!emailTpls.length) {
-    area.innerHTML = '<div class="empty-state"><p>Brak szablonów e-mail. Kliknij „+ Nowy szablon".</p></div>';
-    return;
-  }
-  area.innerHTML = '<div class="tpl-cards">' +
-    emailTpls.map(function(t) {
-      return '<div class="tpl-card">' +
-        '<div class="tpl-card-name">' + esc(t.name) + '</div>' +
-        '<div class="tpl-card-subject">Temat: ' + esc(t.subject) + '</div>' +
-        '<div style="font-size:.75rem;color:var(--text-muted)">Zaktualizowano: ' + (t.updatedAt||t.createdAt||'').slice(0,10) + '</div>' +
-        '<div class="tpl-card-actions">' +
-          '<button class="btn btn-sm btn-outline" onclick="openEmailTplPreview(' + t.id + ')">Podgląd</button>' +
-          '<button class="btn btn-sm btn-outline" onclick="openEmailTplEdit(' + t.id + ')">Edytuj</button>' +
-          '<button class="btn btn-sm btn-danger" onclick="openDel(\'tpl\',' + t.id + ',\'' + esc(t.name) + '\')">Usuń</button>' +
-        '</div>' +
+  document.getElementById('emailTplCount').textContent = emailTpls.length+' szablonów';
+  var area=document.getElementById('emailTplArea');
+  if (!emailTpls.length) { area.innerHTML='<div class="empty-state"><p>Brak szablonów. Kliknij „+ Nowy szablon".</p></div>'; return; }
+  area.innerHTML='<div class="tpl-cards">'+
+    emailTpls.map(function(t){
+      return '<div class="tpl-card">'+
+        '<div class="tpl-card-name">'+esc(t.name)+'</div>'+
+        '<div class="tpl-card-subject">Temat: '+esc(t.subject)+'</div>'+
+        '<div style="font-size:.75rem;color:var(--text-muted)">Aktualizacja: '+(t.updatedAt||t.createdAt||'').slice(0,10)+'</div>'+
+        '<div class="tpl-card-actions">'+
+          '<button class="btn btn-sm btn-outline" onclick="openEmailTplPreview('+t.id+')">Podgląd</button>'+
+          '<button class="btn btn-sm btn-outline" onclick="openEmailTplEdit('+t.id+')">Edytuj</button>'+
+          '<button class="btn btn-sm btn-danger"  onclick="openDel(\'tpl\','+t.id+')">Usuń</button>'+
+        '</div>'+
       '</div>';
-    }).join('') + '</div>';
+    }).join('')+'</div>';
 }
 
 function openEmailTplNew() {
-  editTplId = null;
-  document.getElementById('mEmailTplTitle').textContent = 'Nowy szablon e-mail';
-  document.getElementById('etName').value    = '';
-  document.getElementById('etSubject').value = '';
-  document.getElementById('etContent').value = '';
+  editTplId=null;
+  document.getElementById('mEmailTplTitle').textContent='Nowy szablon e-mail';
+  ['etName','etSubject','etContent'].forEach(function(id){ document.getElementById(id).value=''; });
   clearFormErrors(['etNameErr','etSubjectErr','etContentErr']);
   openModal('mEmailTpl');
-  setTimeout(function(){ document.getElementById('etName').focus(); }, 50);
 }
 
 async function openEmailTplEdit(id) {
   var t = await API.get('/email-templates/'+id);
-  editTplId = id;
-  document.getElementById('mEmailTplTitle').textContent = 'Edytuj szablon';
+  editTplId=id;
+  document.getElementById('mEmailTplTitle').textContent='Edytuj szablon';
   document.getElementById('etName').value    = t.name;
   document.getElementById('etSubject').value = t.subject;
   document.getElementById('etContent').value = t.htmlContent;
@@ -565,23 +712,26 @@ async function openEmailTplPreview(id) {
 }
 
 function previewEmailTpl() {
-  var subj = document.getElementById('etSubject').value;
-  var body = document.getElementById('etContent').value;
+  var subj=document.getElementById('etSubject').value;
+  var body=document.getElementById('etContent').value;
   document.getElementById('previewSubject').textContent = fillSample(subj);
   document.getElementById('previewBody').innerHTML      = fillSample(body);
   openModal('mEmailPreview');
 }
 
 function fillSample(text) {
-  var size = SAMPLE.tireWidth + '/' + SAMPLE.tireProfile + ' R' + SAMPLE.tireDiameter;
-  var map  = {
+  var size=SAMPLE.tireWidth+'/'+SAMPLE.tireProfile+' R'+SAMPLE.tireDiameter;
+  var map={
     '{{imie_nazwisko}}':    SAMPLE.fullName,
     '{{nr_rejestracyjny}}': SAMPLE.licensePlate,
+    '{{email_klienta}}':    SAMPLE.email,
     '{{telefon}}':          SAMPLE.phone,
     '{{rozmiar_kol}}':      size,
     '{{lokalizacja}}':      SAMPLE.location,
     '{{data_przyjecia}}':   SAMPLE.dateIn,
     '{{dni_w_przechowalni}}': String(SAMPLE.daysStored),
+    '{{data_zmiany}}':      '01.11.2026',
+    '{{dni_do_zmiany}}':    String(SAMPLE.daysToChange),
     '{{status}}':           SAMPLE.status,
     '{{uwagi}}':            SAMPLE.notes,
   };
@@ -589,54 +739,140 @@ function fillSample(text) {
 }
 
 function insertPlaceholder(ph) {
-  var ta = document.getElementById('etContent');
-  var s = ta.selectionStart, e = ta.selectionEnd;
-  ta.value = ta.value.slice(0,s) + ph + ta.value.slice(e);
-  ta.selectionStart = ta.selectionEnd = s + ph.length;
+  var ta=document.getElementById('etContent');
+  var s=ta.selectionStart, e=ta.selectionEnd;
+  ta.value=ta.value.slice(0,s)+ph+ta.value.slice(e);
+  ta.selectionStart=ta.selectionEnd=s+ph.length;
   ta.focus();
 }
 
 async function saveEmailTpl() {
   clearFormErrors(['etNameErr','etSubjectErr','etContentErr']);
-  var name    = document.getElementById('etName').value.trim();
-  var subject = document.getElementById('etSubject').value.trim();
-  var content = document.getElementById('etContent').value.trim();
-  var ok = true;
+  var name=document.getElementById('etName').value.trim();
+  var subject=document.getElementById('etSubject').value.trim();
+  var content=document.getElementById('etContent').value.trim();
+  var ok=true;
   if (!name)    { showFieldErr('etNameErr','Pole wymagane'); ok=false; }
   if (!subject) { showFieldErr('etSubjectErr','Pole wymagane'); ok=false; }
   if (!content) { showFieldErr('etContentErr','Pole wymagane'); ok=false; }
   if (!ok) return;
-
-  var btn = document.getElementById('etBtn'); btn.disabled=true; btn.textContent='Zapisywanie…';
+  var btn=document.getElementById('etBtn'); btn.disabled=true; btn.textContent='Zapisywanie…';
   try {
     var saved = editTplId
-      ? await API.put('/email-templates/'+editTplId, { name:name, subject:subject, htmlContent:content })
-      : await API.post('/email-templates', { name:name, subject:subject, htmlContent:content });
+      ? await API.put('/email-templates/'+editTplId, {name,subject,htmlContent:content})
+      : await API.post('/email-templates', {name,subject,htmlContent:content});
     if (editTplId) { var i=emailTpls.findIndex(function(x){return x.id===editTplId;}); if(i!==-1) emailTpls[i]=saved; }
-    else { emailTpls.push(saved); }
+    else emailTpls.push(saved);
     closeModal('mEmailTpl'); renderEmailTpls();
     showAlert('Szablon e-mail zapisany.','success');
   } catch(e) { showAlert(e.message,'error'); }
   finally { btn.disabled=false; btn.textContent='Zapisz'; }
 }
 
-// ── Usuń ────────────────────────────────────────────────────────────────────────
-function openDel(type, id, name) {
+// ══════════════════════════════════════════════════════════
+// USTAWIENIA SMTP
+// ══════════════════════════════════════════════════════════
+var smtpLoaded = false;
+async function loadSmtp() {
+  if (smtpLoaded) return;
+  smtpLoaded = true;
+  try {
+    var cfg = await API.get('/smtp-settings');
+    applySmtpForm(cfg);
+  } catch(e) { /* Brak konfiguracji — ignoruj */ }
+}
+
+function applySmtpForm(cfg) {
+  var hasHost = !!(cfg && cfg.smtp_host);
+  document.getElementById('smtpStatus').className = 'smtp-status smtp-status--'+(hasHost?'active':'inactive');
+  document.getElementById('smtpStatus').innerHTML = hasHost
+    ? '✓ Skonfigurowano SMTP: <strong>'+esc(cfg.smtp_host)+'</strong>'
+    : '○ Brak konfiguracji — używana jest domyślna funkcja mail() serwera';
+  document.getElementById('smClearBtn').style.display = hasHost ? '' : 'none';
+  if (!cfg) return;
+  if (cfg.smtp_host)       document.getElementById('smHost').value      = cfg.smtp_host;
+  if (cfg.smtp_port)       document.getElementById('smPort').value      = cfg.smtp_port;
+  if (cfg.smtp_encryption) document.getElementById('smEnc').value       = cfg.smtp_encryption;
+  if (cfg.smtp_user)       document.getElementById('smUser').value      = cfg.smtp_user;
+  if (cfg.smtp_from_email) document.getElementById('smFromEmail').value = cfg.smtp_from_email;
+  if (cfg.smtp_from_name)  document.getElementById('smFromName').value  = cfg.smtp_from_name;
+  document.getElementById('smPass').placeholder = cfg.smtp_pass_set==='1' ? '••••••••  (zapisane)' : 'Zostaw puste — nie zmieniaj';
+}
+
+async function saveSmtp() {
+  var host = document.getElementById('smHost').value.trim();
+  if (!host) { showSmtpResult('Podaj adres serwera SMTP.','error'); return; }
+  var payload = {
+    smtp_host:       host,
+    smtp_port:       document.getElementById('smPort').value.trim() || '587',
+    smtp_encryption: document.getElementById('smEnc').value,
+    smtp_user:       document.getElementById('smUser').value.trim(),
+    smtp_pass:       document.getElementById('smPass').value,
+    smtp_from_email: document.getElementById('smFromEmail').value.trim(),
+    smtp_from_name:  document.getElementById('smFromName').value.trim(),
+  };
+  try {
+    var cfg = await API.put('/smtp-settings', payload);
+    applySmtpForm(cfg);
+    showSmtpResult('Ustawienia SMTP zapisane.','success');
+    smtpLoaded = false; // force reload next time
+  } catch(e) { showSmtpResult(e.message,'error'); }
+}
+
+function testSmtp() {
+  document.getElementById('smtpTestEmail').value = '';
+  document.getElementById('smtpTestResult').innerHTML = '';
+  openModal('mSmtpTest');
+}
+
+async function sendSmtpTest() {
+  var email = document.getElementById('smtpTestEmail').value.trim();
+  if (!email) { document.getElementById('smtpTestResult').innerHTML='<div class="alert alert-error">Podaj adres e-mail.</div>'; return; }
+  var btn=document.getElementById('smtpTestBtn'); btn.disabled=true; btn.textContent='Wysyłanie…';
+  try {
+    await API.post('/smtp-settings/test', {email});
+    document.getElementById('smtpTestResult').innerHTML='<div class="alert alert-success">Wysłano! Sprawdź skrzynkę '+esc(email)+' (oraz folder SPAM).</div>';
+  } catch(e) {
+    document.getElementById('smtpTestResult').innerHTML='<div class="alert alert-error">'+esc(e.message)+'</div>';
+  } finally { btn.disabled=false; btn.textContent='Wyślij'; }
+}
+
+async function clearSmtp() {
+  if (!confirm('Usunąć konfigurację SMTP? E-maile będą wysyłane przez mail() serwera.')) return;
+  try {
+    await API.del('/smtp-settings');
+    smtpLoaded = false;
+    applySmtpForm(null);
+    ['smHost','smPort','smUser','smPass','smFromEmail','smFromName'].forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('smEnc').value = 'tls';
+    showSmtpResult('Konfiguracja SMTP usunięta.','success');
+  } catch(e) { showSmtpResult(e.message,'error'); }
+}
+
+function showSmtpResult(msg, type) {
+  var el=document.getElementById('smtpResult');
+  el.innerHTML='<div class="alert alert-'+type+'">'+msg+'</div>';
+  setTimeout(function(){ el.innerHTML=''; },5000);
+}
+
+// ── Usuń ──────────────────────────────────────────────────
+function openDel(type, id) {
   delType=type; delId=id;
-  document.getElementById('mDelMsg').innerHTML = 'Czy na pewno chcesz usunąć <strong>' + esc(name) + '</strong>?';
+  var label = type==='action' ? 'tę automatyzację' : 'ten szablon e-mail';
+  document.getElementById('mDelMsg').innerHTML='Czy na pewno chcesz usunąć <strong>'+label+'</strong>?';
   openModal('mDel');
 }
 
 async function confirmDel() {
-  var btn = document.getElementById('mDelBtn'); btn.disabled=true; btn.textContent='Usuwanie…';
+  var btn=document.getElementById('mDelBtn'); btn.disabled=true; btn.textContent='Usuwanie…';
   try {
     if (delType==='action') {
       await API.del('/actions/'+delId);
-      actions = actions.filter(function(a){ return a.id!==delId; });
+      actions=actions.filter(function(a){ return a.id!==delId; });
       renderActions();
     } else {
       await API.del('/email-templates/'+delId);
-      emailTpls = emailTpls.filter(function(t){ return t.id!==delId; });
+      emailTpls=emailTpls.filter(function(t){ return t.id!==delId; });
       renderEmailTpls();
     }
     closeModal('mDel');
@@ -645,10 +881,10 @@ async function confirmDel() {
   finally { btn.disabled=false; btn.textContent='Usuń'; }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function showFieldErr(id,msg){ var e=document.getElementById(id); e.textContent=msg; e.style.display='block'; }
-function clearFormErrors(ids){ ids.forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; }); }
+function clearFormErrors(ids){ ids.forEach(function(id){ var e=document.getElementById(id); if(e){e.style.display='none';} }); }
 </script>
 </body>
 </html>

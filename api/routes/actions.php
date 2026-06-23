@@ -1,28 +1,25 @@
 <?php
 require_once __DIR__ . '/../helpers/auth.php';
+require_once __DIR__ . '/../helpers/mailer.php';
 
 function handle_actions($method, $id, $sub, $body) {
     $user = require_auth();
     require_permission($user, 'manage_users');
 
-    if ($id && $sub === 'run' && $method === 'POST') {
-        action_run($id); return;
-    }
-    if ($id && $sub === 'logs' && $method === 'GET') {
-        action_logs($id); return;
-    }
+    if ($id && $sub === 'run'  && $method === 'POST') { action_run($id);         return; }
+    if ($id && $sub === 'logs' && $method === 'GET')  { action_logs($id);        return; }
 
     if ($id) {
         switch ($method) {
-            case 'GET':    action_get($id);         break;
-            case 'PUT':    action_update($id, $body); break;
-            case 'DELETE': action_delete($id);      break;
+            case 'GET':    action_get($id);            break;
+            case 'PUT':    action_update($id, $body);  break;
+            case 'DELETE': action_delete($id);         break;
             default: method_not_allowed();
         }
     } else {
         switch ($method) {
-            case 'GET':  action_list();          break;
-            case 'POST': action_create($body);   break;
+            case 'GET':  action_list();         break;
+            case 'POST': action_create($body);  break;
             default: method_not_allowed();
         }
     }
@@ -64,21 +61,20 @@ function action_get($id) {
 }
 
 function action_create($body) {
-    $name        = trim($body['name']           ?? '');
-    $triggerType = trim($body['triggerType']    ?? '');
-    $triggerVal  = trim($body['triggerValue']   ?? '');
-    $tplId       = $body['emailTemplateId']      ?? null;
-    $recType     = $body['recipientType']        ?? 'custom';
-    $recEmail    = trim($body['recipientEmail']  ?? '');
-    $active      = isset($body['active']) ? (int)(bool)$body['active'] : 1;
-
-    if (!$name || !$triggerType) {
-        http_response_code(400); echo json_encode(['message' => 'Brakuje wymaganych pól.']); return;
+    $triggerType = trim($body['triggerType'] ?? '');
+    if (!$triggerType) {
+        http_response_code(400); echo json_encode(['message' => 'Brakuje typu wyzwalacza.']); return;
     }
+    $name        = trim($body['name']          ?? '') ?: null;
+    $triggerVal  = trim($body['triggerValue']  ?? '') ?: null;
+    $tplId       = $body['emailTemplateId']    ?? null;
+    $recType     = $body['recipientType']      ?? 'customer_email';
+    $recEmail    = trim($body['recipientEmail'] ?? '') ?: null;
+    $active      = isset($body['active']) ? (int)(bool)$body['active'] : 1;
 
     $pdo  = get_pdo();
     $stmt = $pdo->prepare('INSERT INTO actions (name, trigger_type, trigger_value, email_template_id, recipient_type, recipient_email, active) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$name, $triggerType, $triggerVal ?: null, $tplId ?: null, $recType, $recEmail ?: null, $active]);
+    $stmt->execute([$name, $triggerType, $triggerVal, $tplId ?: null, $recType, $recEmail, $active]);
     http_response_code(201);
     echo json_encode(action_row($pdo->lastInsertId()));
 }
@@ -89,16 +85,19 @@ function action_update($id, $body) {
     $stmt->execute([$id]);
     if (!$stmt->fetch()) { http_response_code(404); echo json_encode(['message' => 'Nie znaleziono akcji.']); return; }
 
-    $name        = trim($body['name']           ?? '');
-    $triggerType = trim($body['triggerType']    ?? '');
-    $triggerVal  = trim($body['triggerValue']   ?? '');
-    $tplId       = $body['emailTemplateId']      ?? null;
-    $recType     = $body['recipientType']        ?? 'custom';
-    $recEmail    = trim($body['recipientEmail']  ?? '');
-    $active      = isset($body['active']) ? (int)(bool)$body['active'] : 1;
+    $triggerType = trim($body['triggerType'] ?? '');
+    if (!$triggerType) {
+        http_response_code(400); echo json_encode(['message' => 'Brakuje typu wyzwalacza.']); return;
+    }
+    $name       = trim($body['name']          ?? '') ?: null;
+    $triggerVal = trim($body['triggerValue']  ?? '') ?: null;
+    $tplId      = $body['emailTemplateId']    ?? null;
+    $recType    = $body['recipientType']      ?? 'customer_email';
+    $recEmail   = trim($body['recipientEmail'] ?? '') ?: null;
+    $active     = isset($body['active']) ? (int)(bool)$body['active'] : 1;
 
     $pdo->prepare('UPDATE actions SET name=?, trigger_type=?, trigger_value=?, email_template_id=?, recipient_type=?, recipient_email=?, active=? WHERE id=?')
-        ->execute([$name, $triggerType, $triggerVal ?: null, $tplId ?: null, $recType, $recEmail ?: null, $active, $id]);
+        ->execute([$name, $triggerType, $triggerVal, $tplId ?: null, $recType, $recEmail, $active, $id]);
     echo json_encode(action_row($id));
 }
 
@@ -125,36 +124,35 @@ function action_logs($id) {
     echo json_encode(array_values($rows->fetchAll()));
 }
 
-/* ── Runner — wywołany ręcznie lub przez cron ────────────────────────────────── */
+/* ─────────────────────── Runner ─────────────────────── */
+
 function action_run($id) {
     $pdo  = get_pdo();
     $stmt = $pdo->prepare('SELECT * FROM actions WHERE id = ? AND active = 1');
     $stmt->execute([$id]);
     $action = $stmt->fetch();
-
     if (!$action) { http_response_code(404); echo json_encode(['message' => 'Akcja nie istnieje lub jest nieaktywna.']); return; }
 
     $result = run_action($pdo, $action);
-
     $pdo->prepare('UPDATE actions SET last_run = NOW() WHERE id = ?')->execute([$id]);
     echo json_encode($result);
 }
 
 function run_action($pdo, $action) {
-    if ($action['trigger_type'] === 'days_in_storage') {
-        return run_days_in_storage($pdo, $action);
+    switch ($action['trigger_type']) {
+        case 'days_in_storage':       return run_days_in_storage($pdo, $action);
+        case 'days_before_next_change': return run_days_before_next_change($pdo, $action);
+        default: return ['sent' => 0, 'failed' => 0, 'skipped' => 0, 'details' => []];
     }
-    return ['sent' => 0, 'failed' => 0, 'skipped' => 0, 'details' => []];
 }
 
 function run_days_in_storage($pdo, $action) {
-    $days = (int)($action['trigger_value'] ?? 30);
-
-    // Opony w przechowalni X lub więcej dni
+    $days  = max(1, (int)($action['trigger_value'] ?? 30));
     $tires = $pdo->prepare("
-        SELECT te.id, c.full_name AS fullName, c.phone, te.license_plate AS licensePlate,
+        SELECT te.id, c.full_name AS fullName, c.email, c.phone, te.license_plate AS licensePlate,
                te.tire_width AS tireWidth, te.tire_profile AS tireProfile, te.tire_diameter AS tireDiameter,
                te.location, te.date_in AS dateIn, te.status, te.notes,
+               te.next_tire_change AS nextTireChange,
                DATEDIFF(NOW(), te.date_in) AS daysStored
         FROM tire_entries te
         JOIN customers c ON c.id = te.customer_id
@@ -162,11 +160,30 @@ function run_days_in_storage($pdo, $action) {
           AND DATEDIFF(NOW(), te.date_in) >= ?
     ");
     $tires->execute([$days]);
-    $tires = $tires->fetchAll();
+    return send_action_emails($pdo, $action, $tires->fetchAll());
+}
 
-    // Pobierz szablon e-mail
-    $tplHtml    = null;
-    $tplSubject = null;
+function run_days_before_next_change($pdo, $action) {
+    $days  = max(1, (int)($action['trigger_value'] ?? 7));
+    $tires = $pdo->prepare("
+        SELECT te.id, c.full_name AS fullName, c.email, c.phone, te.license_plate AS licensePlate,
+               te.tire_width AS tireWidth, te.tire_profile AS tireProfile, te.tire_diameter AS tireDiameter,
+               te.location, te.date_in AS dateIn, te.status, te.notes,
+               te.next_tire_change AS nextTireChange,
+               DATEDIFF(NOW(), te.date_in) AS daysStored,
+               DATEDIFF(te.next_tire_change, CURDATE()) AS daysToChange
+        FROM tire_entries te
+        JOIN customers c ON c.id = te.customer_id
+        WHERE te.status = 'W przechowalni'
+          AND te.next_tire_change IS NOT NULL
+          AND DATEDIFF(te.next_tire_change, CURDATE()) BETWEEN 0 AND ?
+    ");
+    $tires->execute([$days]);
+    return send_action_emails($pdo, $action, $tires->fetchAll());
+}
+
+function send_action_emails($pdo, $action, array $tires) {
+    $tplHtml = $tplSubject = null;
     if ($action['email_template_id']) {
         $tplStmt = $pdo->prepare('SELECT subject, html_content FROM email_templates WHERE id = ?');
         $tplStmt->execute([$action['email_template_id']]);
@@ -174,50 +191,74 @@ function run_days_in_storage($pdo, $action) {
         if ($tpl) { $tplHtml = $tpl['html_content']; $tplSubject = $tpl['subject']; }
     }
 
-    $sent = 0; $failed = 0; $skipped = 0;
+    $sent = $failed = $skipped = 0;
     $details = [];
     $logStmt = $pdo->prepare('INSERT INTO action_logs (action_id, tire_id, recipient_email, status, error) VALUES (?, ?, ?, ?, ?)');
 
     foreach ($tires as $tire) {
-        // Czy już wysłano w ciągu ostatnich 23 godzin?
+        // Duplikat w ciągu 23h
         $dup = $pdo->prepare("SELECT id FROM action_logs WHERE action_id = ? AND tire_id = ? AND status = 'sent' AND sent_at > DATE_SUB(NOW(), INTERVAL 23 HOUR)");
         $dup->execute([$action['id'], $tire['id']]);
         if ($dup->fetch()) { $skipped++; continue; }
 
-        $recipient = $action['recipient_email'] ?? null;
+        // Wyznacz adres odbiorcy
+        $recType = $action['recipient_type'] ?? 'customer_email';
+        if ($recType === 'customer_email') {
+            $recipient = $tire['email'] ?? null;
+        } elseif ($recType === 'admin') {
+            $cfg       = get_smtp_config();
+            $recipient = $cfg ? $cfg['from_email'] : (defined('MAIL_FROM') ? MAIL_FROM : null);
+        } else {
+            $recipient = $action['recipient_email'] ?? null;
+        }
+
         if (!$recipient) { $skipped++; continue; }
 
-        $subject = fill_placeholders($tplSubject ?? 'Opony w przechowalni — {{nr_rejestracyjny}}', $tire);
+        $subject = fill_placeholders($tplSubject ?? 'Opony {{nr_rejestracyjny}} — przypomnienie', $tire);
         $body    = fill_placeholders($tplHtml    ?? default_email_body(), $tire);
 
-        $headers = "From: " . MAIL_FROM_NAME . " <" . MAIL_FROM . ">\r\n"
-                 . "Content-Type: text/html; charset=UTF-8\r\n"
-                 . "X-Mailer: PHP/" . phpversion();
+        try {
+            send_mail($recipient, $subject, $body);
+            $status = 'sent';
+            $errMsg = null;
+            $sent++;
+        } catch (Exception $e) {
+            $status = 'failed';
+            $errMsg = $e->getMessage();
+            $failed++;
+        }
 
-        $encSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-        $ok = @mail($recipient, $encSubject, $body, $headers);
-
-        $status = $ok ? 'sent' : 'failed';
-        $ok ? $sent++ : $failed++;
-        $logStmt->execute([$action['id'], $tire['id'], $recipient, $status, $ok ? null : 'mail() zwróciło false']);
-        $details[] = ['tire' => $tire['licensePlate'], 'recipient' => $recipient, 'status' => $status, 'days' => $tire['daysStored']];
+        $logStmt->execute([$action['id'], $tire['id'], $recipient, $status, $errMsg]);
+        $details[] = [
+            'tire'      => $tire['licensePlate'],
+            'recipient' => $recipient,
+            'status'    => $status,
+            'days'      => $tire['daysStored'] ?? null,
+        ];
     }
 
     return ['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped, 'details' => $details];
 }
 
 function fill_placeholders($text, $tire) {
-    $size  = ($tire['tireWidth'] ?? '') . '/' . ($tire['tireProfile'] ?? '') . ' R' . ($tire['tireDiameter'] ?? '');
-    $map   = [
-        '{{imie_nazwisko}}'    => $tire['fullName']    ?? '',
-        '{{nr_rejestracyjny}}' => $tire['licensePlate'] ?? '',
-        '{{telefon}}'          => $tire['phone']       ?? '',
-        '{{rozmiar_kol}}'      => $size,
-        '{{lokalizacja}}'      => $tire['location']    ?? '',
-        '{{data_przyjecia}}'   => $tire['dateIn']      ?? '',
-        '{{dni_w_przechowalni}}' => (string)($tire['daysStored'] ?? ''),
-        '{{status}}'           => $tire['status']      ?? '',
-        '{{uwagi}}'            => $tire['notes']       ?? '',
+    $size = ($tire['tireWidth'] ?? '') . '/' . ($tire['tireProfile'] ?? '') . ' R' . ($tire['tireDiameter'] ?? '');
+    $ntc  = $tire['nextTireChange'] ?? null;
+    if ($ntc) {
+        try { $dt = new DateTime($ntc); $ntc = $dt->format('d.m.Y'); } catch (Exception $e) {}
+    }
+    $map = [
+        '{{imie_nazwisko}}'      => $tire['fullName']     ?? '',
+        '{{nr_rejestracyjny}}'   => $tire['licensePlate'] ?? '',
+        '{{email_klienta}}'      => $tire['email']        ?? '',
+        '{{telefon}}'            => $tire['phone']        ?? '',
+        '{{rozmiar_kol}}'        => $size,
+        '{{lokalizacja}}'        => $tire['location']     ?? '',
+        '{{data_przyjecia}}'     => $tire['dateIn']       ?? '',
+        '{{dni_w_przechowalni}}' => (string)($tire['daysStored']   ?? ''),
+        '{{data_zmiany}}'        => $ntc ?? '—',
+        '{{dni_do_zmiany}}'      => isset($tire['daysToChange']) ? (string)$tire['daysToChange'] : '',
+        '{{status}}'             => $tire['status']       ?? '',
+        '{{uwagi}}'              => $tire['notes']        ?? '',
     ];
     return str_replace(array_keys($map), array_values($map), $text);
 }

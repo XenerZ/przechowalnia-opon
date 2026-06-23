@@ -56,6 +56,10 @@ switch ($resource) {
         require_once __DIR__ . '/routes/actions.php';
         handle_actions($method, $id, $sub, $body);
         break;
+    case 'smtp-settings':
+        require_once __DIR__ . '/routes/smtp-settings.php';
+        handle_smtp_settings($method, $id, $body);
+        break;
     default:
         http_response_code(404);
         echo json_encode(['message' => 'Nie znaleziono zasobu.']);
