@@ -17,13 +17,6 @@ ALTER TABLE users DROP COLUMN id;
 ALTER TABLE users CHANGE COLUMN uuid id CHAR(36) NOT NULL;
 ALTER TABLE users ADD PRIMARY KEY (id);
 
-ALTER TABLE user_permissions
-    ADD CONSTRAINT fk_up_user
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-
-ALTER TABLE users
-    ADD CONSTRAINT fk_users_company
-    FOREIGN KEY (company_id) REFERENCES companies(id);
 
 -- ── 7. company_id w tabelach danych ──────────────────────────
 ALTER TABLE tire_entries    ADD COLUMN company_id CHAR(36) NULL;
