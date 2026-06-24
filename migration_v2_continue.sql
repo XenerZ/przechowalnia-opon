@@ -11,6 +11,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ── 6. Zamiana PK users z INT na UUID ────────────────────────
+ALTER TABLE users MODIFY COLUMN id INT NOT NULL;
 ALTER TABLE users DROP PRIMARY KEY;
 ALTER TABLE users DROP COLUMN id;
 ALTER TABLE users CHANGE COLUMN uuid id CHAR(36) NOT NULL;
