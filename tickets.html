@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wsparcie — Przechowalnia Opon</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
+  <link rel="manifest" href="assets/favicon/site.webmanifest">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .ticket-list { display:flex; flex-direction:column; gap:.5rem; }
+    .ticket-row {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .85rem 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: border-color .15s;
+    }
+    .ticket-row:hover { border-color: var(--primary); }
+    .ticket-row-subject { font-weight: 600; font-size: .92rem; flex: 1; }
+    .ticket-row-meta { font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+    .ticket-thread { display:flex; flex-direction:column; gap:.75rem; margin-bottom:1.5rem; }
+    .msg-bubble {
+      max-width: 80%;
+      padding: .65rem .9rem;
+      border-radius: var(--radius);
+      font-size: .88rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .msg-bubble--user    { background: var(--primary); color: #fff; align-self: flex-end; }
+    .msg-bubble--support { background: var(--surface); border: 1px solid var(--border); align-self: flex-start; }
+    .msg-meta { font-size: .72rem; color: var(--text-muted); margin-top: .25rem; }
+    .msg-user-wrap    { display:flex; flex-direction:column; align-items:flex-end; }
+    .msg-support-wrap { display:flex; flex-direction:column; align-items:flex-start; }
+    .priority-badge {
+      display: inline-block; font-size: .68rem; font-weight: 700;
+      padding: .15rem .45rem; border-radius: 20px; text-transform: uppercase;
+    }
+    .priority-low    { background:#f0f9ff; color:#0369a1; }
+    .priority-normal { background:#f0fdf4; color:#15803d; }
+    .priority-high   { background:#fff7ed; color:#c2410c; }
+    .priority-urgent { background:#fef2f2; color:#dc2626; }
+    .ticket-detail-header {
+      display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+    .ticket-detail-subject { font-size: 1.1rem; font-weight: 700; flex:1; }
+    .status-badge {
+      font-size: .7rem; font-weight: 700; padding: .18rem .5rem;
+      border-radius: 20px; text-transform: uppercase;
+    }
+    .status-open        { background:#dbeafe; color:#1e40af; }
+    .status-in_progress { background:#fef9c3; color:#92400e; }
+    .status-resolved    { background:#dcfce7; color:#166534; }
+    .status-closed      { background:#f1f5f9; color:#475569; }
+    #ticketView { display:none; }
+    .empty-state { text-align:center; padding:3rem 1rem; color:var(--text-muted); }
+  </style>
+</head>
+<body>
+<div id="navbarMount"></div>
+<div class="page-wrapper">
+  <div class="content-area">
+
+    <!-- Lista ticketów -->
+    <div id="listView">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem">
+        <div>
+          <h1 class="page-title">Wsparcie</h1>
+          <p class="page-subtitle">Twoje zgłoszenia do supportu</p>
+        </div>
+        <button class="btn btn-primary" onclick="openNewTicket()">+ Nowe zgłoszenie</button>
+      </div>
+      <div id="listAlert"></div>
+      <div id="ticketList" class="ticket-list">
+        <div class="empty-state">Ładowanie…</div>
+      </div>
+    </div>
+
+    <!-- Widok ticketu -->
+    <div id="ticketView">
+      <div style="margin-bottom:1rem">
+        <button class="btn btn-outline" onclick="showList()">← Powrót</button>
+      </div>
+      <div id="ticketDetailHeader" class="ticket-detail-header"></div>
+      <div class="card" style="padding:1.25rem;margin-bottom:1rem">
+        <div id="ticketThread" class="ticket-thread"></div>
+        <div id="replySection">
+          <div class="form-group" style="margin-top:.5rem">
+            <textarea id="replyInput" class="form-control" rows="3" placeholder="Napisz odpowiedź…" style="resize:vertical"></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="submitReply()">Wyślij odpowiedź</button>
+        </div>
+        <div id="closedNote" style="display:none;color:var(--text-muted);font-size:.85rem;margin-top:.5rem">
+          Ticket jest zamknięty. Wyślij wiadomość, aby go ponownie otworzyć.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal: Nowe zgłoszenie -->
+<div id="newTicketOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:480px;padding:1.5rem;margin:1rem">
+    <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem">Nowe zgłoszenie</h2>
+    <div id="newTicketAlert"></div>
+    <div class="form-group">
+      <label>Temat *</label>
+      <input type="text" id="ntSubject" placeholder="Krótki opis problemu">
+      <span class="form-error" id="ntSubjectErr" style="display:none"></span>
+    </div>
+    <div class="form-group">
+      <label>Priorytet</label>
+      <select id="ntPriority" class="form-control">
+        <option value="low">Niski</option>
+        <option value="normal" selected>Normalny</option>
+        <option value="high">Wysoki</option>
+        <option value="urgent">Pilny</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Wiadomość *</label>
+      <textarea id="ntMessage" class="form-control" rows="5" placeholder="Opisz szczegółowo problem…" style="resize:vertical"></textarea>
+      <span class="form-error" id="ntMessageErr" style="display:none"></span>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeNewTicket()">Anuluj</button>
+      <button class="btn btn-primary" id="ntSubmitBtn" onclick="submitNewTicket()">Wyślij zgłoszenie</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js?v=2"></script>
+<script src="js/auth.js?v=2"></script>
+<script src="js/navbar.js?v=2"></script>
+<script>
+(function(){ var t=localStorage.getItem('po_theme')||'light'; document.documentElement.setAttribute('data-theme',t); })();
+var user = Auth.requireAuth();
+Navbar.render(user);
+
+var currentTicketId = null;
+
+async function loadList() {
+  try {
+    var tickets = await API.get('/tickets');
+    renderList(tickets);
+  } catch(e) {
+    document.getElementById('ticketList').innerHTML = '<div class="empty-state">Nie udało się załadować zgłoszeń.</div>';
+  }
+}
+
+function renderList(tickets) {
+  var el = document.getElementById('ticketList');
+  if (!tickets.length) {
+    el.innerHTML = '<div class="empty-state">Brak zgłoszeń.<br>Kliknij „Nowe zgłoszenie" aby skontaktować się ze wsparciem.</div>';
+    return;
+  }
+  el.innerHTML = tickets.map(function(t) {
+    var statusLabel = {open:'Otwarte',in_progress:'W trakcie',resolved:'Rozwiązane',closed:'Zamknięte'}[t.status] || t.status;
+    var date = t.updated_at ? new Date(t.updated_at).toLocaleDateString('pl-PL') : '';
+    return '<div class="ticket-row" onclick="openTicket(' + t.id + ')">' +
+      '<div class="ticket-row-subject">#' + t.id + ' ' + esc(t.subject) + '</div>' +
+      '<span class="priority-badge priority-' + t.priority + '">' + priorityLabel(t.priority) + '</span>' +
+      '<span class="status-badge status-' + t.status + '">' + esc(statusLabel) + '</span>' +
+      '<span class="ticket-row-meta">' + date + ' · ' + (t.message_count || 0) + ' wiad.</span>' +
+    '</div>';
+  }).join('');
+}
+
+async function openTicket(id) {
+  currentTicketId = id;
+  document.getElementById('listView').style.display = 'none';
+  document.getElementById('ticketView').style.display = 'block';
+  document.getElementById('ticketThread').innerHTML = '<div style="color:var(--text-muted);font-size:.85rem">Ładowanie…</div>';
+  try {
+    var ticket = await API.get('/tickets/' + id);
+    renderTicket(ticket);
+  } catch(e) {
+    document.getElementById('ticketThread').innerHTML = '<div class="alert alert-error">Nie udało się załadować ticketu.</div>';
+  }
+}
+
+function renderTicket(ticket) {
+  var statusLabel = {open:'Otwarte',in_progress:'W trakcie',resolved:'Rozwiązane',closed:'Zamknięte'}[ticket.status] || ticket.status;
+  document.getElementById('ticketDetailHeader').innerHTML =
+    '<div class="ticket-detail-subject">#' + ticket.id + ' ' + esc(ticket.subject) + '</div>' +
+    '<span class="priority-badge priority-' + ticket.priority + '">' + priorityLabel(ticket.priority) + '</span>' +
+    '<span class="status-badge status-' + ticket.status + '">' + esc(statusLabel) + '</span>';
+
+  var msgs = ticket.messages || [];
+  document.getElementById('ticketThread').innerHTML = msgs.length
+    ? msgs.map(function(m) {
+        var cls = m.is_support ? 'support' : 'user';
+        var who = m.is_support ? 'Support' : esc(m.author_username);
+        var date = new Date(m.created_at).toLocaleString('pl-PL');
+        return '<div class="msg-' + cls + '-wrap">' +
+          '<div class="msg-bubble msg-bubble--' + cls + '">' + esc(m.message) + '</div>' +
+          '<div class="msg-meta">' + who + ' · ' + date + '</div>' +
+        '</div>';
+      }).join('')
+    : '<div style="color:var(--text-muted);font-size:.85rem">Brak wiadomości.</div>';
+
+  var isClosed = ticket.status === 'closed';
+  document.getElementById('closedNote').style.display = isClosed ? 'block' : 'none';
+}
+
+function showList() {
+  currentTicketId = null;
+  document.getElementById('ticketView').style.display = 'none';
+  document.getElementById('listView').style.display = 'block';
+  loadList();
+}
+
+async function submitReply() {
+  var msg = document.getElementById('replyInput').value.trim();
+  if (!msg) return;
+  try {
+    await API.post('/tickets/' + currentTicketId + '/reply', { message: msg });
+    document.getElementById('replyInput').value = '';
+    openTicket(currentTicketId);
+  } catch(e) {
+    alert(e.message || 'Błąd wysyłania.');
+  }
+}
+
+function openNewTicket() {
+  document.getElementById('ntSubject').value = '';
+  document.getElementById('ntMessage').value = '';
+  document.getElementById('ntPriority').value = 'normal';
+  document.getElementById('ntSubjectErr').style.display = 'none';
+  document.getElementById('ntMessageErr').style.display = 'none';
+  document.getElementById('newTicketAlert').innerHTML = '';
+  var o = document.getElementById('newTicketOverlay');
+  o.style.display = 'flex';
+}
+function closeNewTicket() { document.getElementById('newTicketOverlay').style.display = 'none'; }
+document.getElementById('newTicketOverlay').addEventListener('click', function(e){ if(e.target===this) closeNewTicket(); });
+
+async function submitNewTicket() {
+  var subject  = document.getElementById('ntSubject').value.trim();
+  var message  = document.getElementById('ntMessage').value.trim();
+  var priority = document.getElementById('ntPriority').value;
+  var ok = true;
+  document.getElementById('ntSubjectErr').style.display = 'none';
+  document.getElementById('ntMessageErr').style.display = 'none';
+  if (!subject) { document.getElementById('ntSubjectErr').textContent='Pole wymagane'; document.getElementById('ntSubjectErr').style.display='block'; ok=false; }
+  if (!message) { document.getElementById('ntMessageErr').textContent='Pole wymagane'; document.getElementById('ntMessageErr').style.display='block'; ok=false; }
+  if (!ok) return;
+  var btn = document.getElementById('ntSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Wysyłanie…';
+  try {
+    var res = await API.post('/tickets', { subject: subject, message: message, priority: priority });
+    closeNewTicket();
+    openTicket(res.id);
+  } catch(e) {
+    document.getElementById('newTicketAlert').innerHTML = '<div class="alert alert-error">' + esc(e.message) + '</div>';
+    btn.disabled = false; btn.textContent = 'Wyślij zgłoszenie';
+  }
+}
+
+function priorityLabel(p) { return {low:'Niski',normal:'Normalny',high:'Wysoki',urgent:'Pilny'}[p] || p; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+loadList();
+</script>
+</body>
+</html>

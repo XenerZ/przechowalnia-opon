@@ -22,6 +22,7 @@ $method   = $_SERVER['REQUEST_METHOD'];
 $resource = $parts[0] ?? '';
 $id       = $parts[1] ?? null;
 $sub      = $parts[2] ?? null;
+$action   = $parts[3] ?? null;
 
 $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
@@ -69,6 +70,14 @@ switch ($resource) {
     case 'smtp-settings':
         require_once __DIR__ . '/routes/smtp-settings.php';
         handle_smtp_settings($method, $id, $body);
+        break;
+    case 'support':
+        require_once __DIR__ . '/routes/support.php';
+        handle_support($method, $id, $sub, $action, $body);
+        break;
+    case 'tickets':
+        require_once __DIR__ . '/routes/tickets.php';
+        handle_tickets($method, $id, $sub, $body);
         break;
     default:
         http_response_code(404);

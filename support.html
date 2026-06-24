@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support Panel — Przechowalnia Opon</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
+  <link rel="manifest" href="assets/favicon/site.webmanifest">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    body { margin:0; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+    .sp-layout { display:flex; flex:1; min-height:0; }
+
+    /* Sidebar */
+    .sp-sidebar {
+      width: 220px; flex-shrink:0;
+      background: var(--card-bg);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction:column;
+      overflow-y: auto;
+    }
+    .sp-brand {
+      padding: 1.1rem 1rem .9rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700; font-size: .95rem; color: var(--text);
+    }
+    .sp-brand span { color: var(--primary); }
+    .sp-nav { padding: .5rem 0; flex:1; }
+    .sp-nav-item {
+      display: flex; align-items: center; gap: .6rem;
+      padding: .6rem 1rem; cursor: pointer;
+      font-size: .88rem; color: var(--text-muted);
+      border-left: 3px solid transparent;
+      transition: color .15s, background .15s;
+    }
+    .sp-nav-item:hover { background: var(--surface); color: var(--text); }
+    .sp-nav-item.active { color: var(--primary); border-left-color: var(--primary); background: var(--surface); font-weight:600; }
+    .sp-badge {
+      margin-left:auto; background:#ef4444; color:#fff;
+      font-size:.65rem; font-weight:700; border-radius:20px; padding:.1rem .4rem; min-width:18px; text-align:center;
+    }
+    .sp-footer { padding: .75rem 1rem; border-top: 1px solid var(--border); }
+    .sp-user { font-size:.8rem; color:var(--text-muted); margin-bottom:.4rem; }
+    .sp-logout { font-size:.8rem; color: var(--danger, #ef4444); cursor:pointer; background:none; border:none; padding:0; }
+    .sp-logout:hover { text-decoration:underline; }
+
+    /* Header */
+    .sp-header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: .6rem 1.25rem;
+      display: flex; align-items:center; justify-content:space-between;
+      font-size:.85rem; color:var(--text-muted);
+    }
+    .sp-header-title { font-weight:700; font-size:1rem; color:var(--text); }
+
+    /* Main */
+    .sp-main { flex:1; overflow-y:auto; padding: 1.25rem; }
+
+    /* Stats grid */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+    .stat-card { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:1rem; text-align:center; }
+    .stat-value { font-size:1.8rem; font-weight:800; color:var(--primary); }
+    .stat-label { font-size:.78rem; color:var(--text-muted); margin-top:.2rem; }
+
+    /* Table */
+    .sp-table-wrap { overflow-x:auto; }
+    .sp-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    .sp-table th { text-align:left; font-size:.75rem; color:var(--text-muted); font-weight:600; padding:.5rem .75rem; border-bottom:2px solid var(--border); white-space:nowrap; }
+    .sp-table td { padding:.6rem .75rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .sp-table tr:last-child td { border-bottom:none; }
+    .sp-table tr:hover td { background:var(--surface); }
+
+    /* Badges */
+    .badge { display:inline-block; font-size:.68rem; font-weight:700; padding:.15rem .45rem; border-radius:20px; text-transform:uppercase; }
+    .badge-pending    { background:#fef9c3; color:#92400e; }
+    .badge-active     { background:#dcfce7; color:#166534; }
+    .badge-suspended  { background:#fee2e2; color:#991b1b; }
+    .badge-open       { background:#dbeafe; color:#1e40af; }
+    .badge-in_progress{ background:#fef3c7; color:#92400e; }
+    .badge-resolved   { background:#dcfce7; color:#166534; }
+    .badge-closed     { background:#f1f5f9; color:#475569; }
+    .badge-low        { background:#f0f9ff; color:#0369a1; }
+    .badge-normal     { background:#f0fdf4; color:#15803d; }
+    .badge-high       { background:#fff7ed; color:#c2410c; }
+    .badge-urgent     { background:#fef2f2; color:#dc2626; }
+
+    /* Ticket thread */
+    .thread { display:flex; flex-direction:column; gap:.75rem; max-height:400px; overflow-y:auto; padding:.5rem; }
+    .msg-wrap-user    { display:flex; flex-direction:column; align-items:flex-end; }
+    .msg-wrap-support { display:flex; flex-direction:column; align-items:flex-start; }
+    .msg-bubble {
+      max-width:75%; padding:.6rem .9rem; border-radius:var(--radius);
+      font-size:.87rem; line-height:1.5; white-space:pre-wrap; word-break:break-word;
+    }
+    .msg-bubble-user    { background:var(--surface); border:1px solid var(--border); }
+    .msg-bubble-support { background:var(--primary); color:#fff; }
+    .msg-meta { font-size:.7rem; color:var(--text-muted); margin-top:.2rem; }
+
+    /* Modals */
+    .sp-overlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+      z-index:300; align-items:center; justify-content:center;
+    }
+    .sp-modal {
+      background:var(--card-bg); border-radius:var(--radius-lg);
+      padding:1.5rem; width:100%; max-width:560px; max-height:90vh;
+      overflow-y:auto; margin:1rem; box-shadow:var(--shadow-lg);
+    }
+    .sp-modal h2 { font-size:1.05rem; font-weight:700; margin-bottom:1rem; }
+
+    /* Section header */
+    .sp-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:.5rem; }
+    .sp-section-title { font-size:1.1rem; font-weight:700; }
+
+    /* Filter bar */
+    .filter-bar { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .filter-btn { font-size:.78rem; padding:.3rem .7rem; border-radius:20px; border:1px solid var(--border); background:var(--card-bg); cursor:pointer; color:var(--text-muted); }
+    .filter-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+    .empty-msg { text-align:center; color:var(--text-muted); padding:2rem; font-size:.88rem; }
+
+    @media (max-width:640px) {
+      .sp-sidebar { width:200px; }
+      .sp-main { padding:.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="sp-header">
+  <div class="sp-header-title">&#x1F6E0; Support Panel</div>
+  <div id="spHeaderUser" style="font-size:.83rem;color:var(--text-muted)"></div>
+</div>
+
+<div class="sp-layout">
+  <!-- Sidebar -->
+  <aside class="sp-sidebar">
+    <div class="sp-brand"><span>PO</span> Support</div>
+    <nav class="sp-nav">
+      <div class="sp-nav-item active" onclick="showSection('dashboard')" id="nav-dashboard">&#x1F4CA; Dashboard</div>
+      <div class="sp-nav-item" onclick="showSection('tickets')" id="nav-tickets">&#x1F4EC; Tickety <span class="sp-badge" id="ticketBadge" style="display:none">0</span></div>
+      <div class="sp-nav-item" onclick="showSection('companies')" id="nav-companies">&#x1F3E2; Firmy <span class="sp-badge" id="companyBadge" style="display:none">0</span></div>
+      <div class="sp-nav-item" onclick="showSection('users')" id="nav-users">&#x1F465; Użytkownicy</div>
+      <div class="sp-nav-item" onclick="showSection('pools')" id="nav-pools">&#x1F9EA; Pule testowe</div>
+    </nav>
+    <div class="sp-footer">
+      <div class="sp-user" id="spSidebarUser"></div>
+      <button class="sp-logout" onclick="logout()">Wyloguj się</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="sp-main">
+
+    <!-- Dashboard -->
+    <div id="sec-dashboard">
+      <div class="sp-section-title" style="margin-bottom:1rem">Dashboard</div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Firm</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Oczekujących</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Użytkowników</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Otwartych ticketów</div></div>
+      </div>
+    </div>
+
+    <!-- Tickety -->
+    <div id="sec-tickets" style="display:none">
+      <div class="sp-section-header">
+        <div class="sp-section-title">Tickety</div>
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterTickets(null,this)">Wszystkie</button>
+        <button class="filter-btn" onclick="filterTickets('open',this)">Otwarte</button>
+        <button class="filter-btn" onclick="filterTickets('in_progress',this)">W trakcie</button>
+        <button class="filter-btn" onclick="filterTickets('resolved',this)">Rozwiązane</button>
+        <button class="filter-btn" onclick="filterTickets('closed',this)">Zamknięte</button>
+      </div>
+      <div class="card sp-table-wrap">
+        <table class="sp-table" id="ticketsTable">
+          <thead><tr><th>#</th><th>Temat</th><th>Firma</th><th>Zgłaszający</th><th>Priorytet</th><th>Status</th><th>Data</th><th>Akcje</th></tr></thead>
+          <tbody id="ticketsBody"><tr><td colspan="8" class="empty-msg">Ładowanie…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Firmy -->
+    <div id="sec-companies" style="display:none">
+      <div class="sp-section-header">
+        <div class="sp-section-title">Firmy</div>
+      </div>
+      <div class="card sp-table-wrap">
+        <table class="sp-table" id="companiesTable">
+          <thead><tr><th>Nazwa</th><th>NIP</th><th>Plan</th><th>Status</th><th>Następne rozliczenie</th><th>Użyt.</th><th>Tickety</th><th>Akcje</th></tr></thead>
+          <tbody id="companiesBody"><tr><td colspan="8" class="empty-msg">Ładowanie…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Użytkownicy -->
+    <div id="sec-users" style="display:none">
+      <div class="sp-section-header">
+        <div class="sp-section-title">Użytkownicy</div>
+        <select id="userCompanyFilter" class="form-control" style="width:auto;font-size:.83rem" onchange="filterUsers()">
+          <option value="">Wszystkie firmy</option>
+        </select>
+      </div>
+      <div class="card sp-table-wrap">
+        <table class="sp-table" id="usersTable">
+          <thead><tr><th>Login</th><th>E-mail</th><th>Firma</th><th>Rola</th><th>Status</th><th>Akcje</th></tr></thead>
+          <tbody id="usersBody"><tr><td colspan="6" class="empty-msg">Ładowanie…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pule testowe -->
+    <div id="sec-pools" style="display:none">
+      <div class="sp-section-header">
+        <div class="sp-section-title">Pule testowe</div>
+      </div>
+      <div id="poolsContainer"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Modal: Ticket thread -->
+<div class="sp-overlay" id="ticketModal" onclick="if(event.target===this)closeModal('ticketModal')">
+  <div class="sp-modal" style="max-width:640px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem">
+      <div>
+        <div id="tmSubject" style="font-weight:700;font-size:1rem"></div>
+        <div id="tmMeta" style="font-size:.78rem;color:var(--text-muted);margin-top:.2rem"></div>
+      </div>
+      <button class="btn btn-outline" style="font-size:.78rem;white-space:nowrap" onclick="closeModal('ticketModal')">Zamknij</button>
+    </div>
+    <div class="thread" id="tmThread"></div>
+    <div style="margin-top:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <select id="tmStatus" class="form-control" style="width:auto;font-size:.8rem" onchange="changeTicketStatus()">
+        <option value="open">Otwarte</option>
+        <option value="in_progress">W trakcie</option>
+        <option value="resolved">Rozwiązane</option>
+        <option value="closed">Zamknięte</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-top:.85rem">
+      <textarea id="tmReply" class="form-control" rows="3" placeholder="Odpowiedź do klienta…" style="resize:vertical"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="sendTicketReply()">Wyślij odpowiedź</button>
+  </div>
+</div>
+
+<!-- Modal: Rozliczenie firmy -->
+<div class="sp-overlay" id="billingModal" onclick="if(event.target===this)closeModal('billingModal')">
+  <div class="sp-modal">
+    <h2>Rozliczenie — <span id="billingCompanyName"></span></h2>
+    <div class="form-group">
+      <label>Data pierwszego rozliczenia</label>
+      <input type="date" id="billingDate" class="form-control">
+    </div>
+    <div class="form-group">
+      <label>Kolejne rozliczenie</label>
+      <input type="date" id="billingNextDate" class="form-control">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeModal('billingModal')">Anuluj</button>
+      <button class="btn btn-primary" onclick="saveBilling()">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Zmiana planu -->
+<div class="sp-overlay" id="planModal" onclick="if(event.target===this)closeModal('planModal')">
+  <div class="sp-modal" style="max-width:380px">
+    <h2>Zmiana planu — <span id="planCompanyName"></span></h2>
+    <div class="form-group">
+      <label>Plan</label>
+      <select id="planSelect" class="form-control" id="planSelect"></select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeModal('planModal')">Anuluj</button>
+      <button class="btn btn-primary" onclick="savePlan()">Zmień plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Dodaj użytkownika do puli -->
+<div class="sp-overlay" id="poolMemberModal" onclick="if(event.target===this)closeModal('poolMemberModal')">
+  <div class="sp-modal" style="max-width:420px">
+    <h2>Dodaj do puli — <span id="poolMemberPoolName"></span></h2>
+    <div class="form-group">
+      <label>Użytkownik</label>
+      <select id="poolMemberUserSelect" class="form-control"></select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline" onclick="closeModal('poolMemberModal')">Anuluj</button>
+      <button class="btn btn-primary" onclick="addPoolMember()">Dodaj</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js?v=2"></script>
+<script src="js/auth.js?v=2"></script>
+<script>
+(function(){ var t=localStorage.getItem('po_theme')||'light'; document.documentElement.setAttribute('data-theme',t); })();
+
+var user = Auth.requireAuth();
+if (user.role !== 'super_admin') {
+  alert('Brak dostępu — wymagana rola super_admin.');
+  window.location.href = 'login.html';
+}
+
+document.getElementById('spHeaderUser').textContent = user.username;
+document.getElementById('spSidebarUser').textContent = user.username;
+
+var allTickets   = [];
+var allCompanies = [];
+var allUsers     = [];
+var allPlans     = [];
+var activeSection = 'dashboard';
+var currentTicketId = null;
+var currentBillingId = null;
+var currentPlanId = null;
+var currentPoolId = null;
+
+// ── Navigation ───────────────────────────────────────────────────
+function showSection(name) {
+  ['dashboard','tickets','companies','users','pools'].forEach(function(s) {
+    document.getElementById('sec-' + s).style.display = s === name ? 'block' : 'none';
+    document.getElementById('nav-' + s).classList.toggle('active', s === name);
+  });
+  activeSection = name;
+  if (name === 'dashboard')  loadDashboard();
+  if (name === 'tickets')    loadTickets();
+  if (name === 'companies')  loadCompanies();
+  if (name === 'users')      loadUsers();
+  if (name === 'pools')      loadPools();
+}
+
+// ── Dashboard ────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    var stats = await API.get('/support');
+    var grid = document.getElementById('statsGrid');
+    grid.innerHTML = [
+      { value: stats.companies,         label: 'Firm' },
+      { value: stats.companies_pending, label: 'Oczekujących na zatwierdzenie' },
+      { value: stats.users,             label: 'Użytkowników' },
+      { value: stats.tickets_open,      label: 'Otwartych ticketów' },
+    ].map(function(s) {
+      return '<div class="stat-card"><div class="stat-value">' + s.value + '</div><div class="stat-label">' + s.label + '</div></div>';
+    }).join('');
+    if (stats.tickets_open > 0) {
+      var tb = document.getElementById('ticketBadge');
+      tb.textContent = stats.tickets_open; tb.style.display = 'inline-block';
+    }
+    if (stats.companies_pending > 0) {
+      var cb = document.getElementById('companyBadge');
+      cb.textContent = stats.companies_pending; cb.style.display = 'inline-block';
+    }
+  } catch(e) {}
+}
+
+// ── Tickets ──────────────────────────────────────────────────────
+async function loadTickets(status) {
+  var url = '/support/tickets' + (status ? '?status=' + status : '');
+  try {
+    allTickets = await API.get(url);
+    renderTickets(allTickets);
+  } catch(e) {
+    document.getElementById('ticketsBody').innerHTML = '<tr><td colspan="8" class="empty-msg">Błąd ładowania.</td></tr>';
+  }
+}
+
+function filterTickets(status, btn) {
+  document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  loadTickets(status);
+}
+
+function renderTickets(tickets) {
+  var tbody = document.getElementById('ticketsBody');
+  if (!tickets.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-msg">Brak ticketów.</td></tr>'; return; }
+  tbody.innerHTML = tickets.map(function(t) {
+    return '<tr>' +
+      '<td style="font-weight:600">#' + t.id + '</td>' +
+      '<td>' + esc(t.subject) + '</td>' +
+      '<td>' + esc(t.company_name) + '</td>' +
+      '<td>' + esc(t.user_username) + '</td>' +
+      '<td><span class="badge badge-' + t.priority + '">' + priorityLabel(t.priority) + '</span></td>' +
+      '<td><span class="badge badge-' + t.status + '">' + statusLabel(t.status) + '</span></td>' +
+      '<td style="font-size:.78rem;color:var(--text-muted)">' + fmtDate(t.updated_at) + '</td>' +
+      '<td><button class="btn btn-outline" style="font-size:.75rem;padding:.25rem .6rem" onclick="openTicketModal(' + t.id + ')">Otwórz</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function openTicketModal(id) {
+  currentTicketId = id;
+  try {
+    var ticket = await API.get('/support/tickets/' + id);
+    document.getElementById('tmSubject').textContent = '#' + ticket.id + ' ' + ticket.subject;
+    document.getElementById('tmMeta').textContent = esc(ticket.company_name) + ' · ' + esc(ticket.user_username) + ' · ' + fmtDate(ticket.created_at);
+    document.getElementById('tmStatus').value = ticket.status;
+    var msgs = ticket.messages || [];
+    document.getElementById('tmThread').innerHTML = msgs.map(function(m) {
+      var cls = m.is_support ? 'support' : 'user';
+      var who = m.is_support ? 'Support (' + esc(m.author_username) + ')' : esc(m.author_username);
+      return '<div class="msg-wrap-' + cls + '">' +
+        '<div class="msg-bubble msg-bubble-' + cls + '">' + esc(m.message) + '</div>' +
+        '<div class="msg-meta">' + who + ' · ' + fmtDateTime(m.created_at) + '</div>' +
+      '</div>';
+    }).join('') || '<div class="empty-msg">Brak wiadomości.</div>';
+    document.getElementById('tmReply').value = '';
+    openModal('ticketModal');
+    // Scroll thread to bottom
+    var thread = document.getElementById('tmThread');
+    thread.scrollTop = thread.scrollHeight;
+  } catch(e) { alert('Błąd ładowania ticketu.'); }
+}
+
+async function changeTicketStatus() {
+  var status = document.getElementById('tmStatus').value;
+  try {
+    await API.put('/support/tickets/' + currentTicketId + '/status', { status: status });
+    if (activeSection === 'tickets') loadTickets();
+  } catch(e) { alert(e.message); }
+}
+
+async function sendTicketReply() {
+  var msg = document.getElementById('tmReply').value.trim();
+  if (!msg) return;
+  try {
+    await API.post('/support/tickets/' + currentTicketId + '/reply', { message: msg });
+    document.getElementById('tmReply').value = '';
+    openTicketModal(currentTicketId);
+    if (activeSection === 'tickets') loadTickets();
+  } catch(e) { alert(e.message || 'Błąd wysyłania.'); }
+}
+
+// ── Companies ────────────────────────────────────────────────────
+async function loadCompanies() {
+  try {
+    allCompanies = await API.get('/support/companies');
+    renderCompanies(allCompanies);
+    // Populate user company filter
+    var sel = document.getElementById('userCompanyFilter');
+    sel.innerHTML = '<option value="">Wszystkie firmy</option>' +
+      allCompanies.map(function(c){ return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>'; }).join('');
+  } catch(e) {
+    document.getElementById('companiesBody').innerHTML = '<tr><td colspan="8" class="empty-msg">Błąd ładowania.</td></tr>';
+  }
+}
+
+function renderCompanies(companies) {
+  var tbody = document.getElementById('companiesBody');
+  if (!companies.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty-msg">Brak firm.</td></tr>'; return; }
+  tbody.innerHTML = companies.map(function(c) {
+    var billing = c.next_billing_at ? fmtDate(c.next_billing_at) : '—';
+    return '<tr>' +
+      '<td><strong>' + esc(c.name) + '</strong><div style="font-size:.72rem;color:var(--text-muted)">' + esc(c.email) + '</div></td>' +
+      '<td style="font-size:.82rem">' + esc(c.nip||'—') + '</td>' +
+      '<td style="font-size:.82rem">' + esc(c.plan_name||c.plan_id) + '</td>' +
+      '<td><span class="badge badge-' + c.status + '">' + companyStatusLabel(c.status) + '</span></td>' +
+      '<td style="font-size:.82rem">' + billing + '</td>' +
+      '<td style="font-size:.82rem">' + (c.user_count||0) + '</td>' +
+      '<td style="font-size:.82rem">' + (c.ticket_count||0) + '</td>' +
+      '<td>' + companyActions(c) + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function companyActions(c) {
+  var btns = '<div style="display:flex;gap:.3rem;flex-wrap:wrap">';
+  if (c.status === 'pending') {
+    btns += '<button class="btn btn-primary" style="font-size:.73rem;padding:.25rem .55rem" onclick="approveCompany(\'' + c.id + '\')">Zatwierdź</button>';
+  }
+  if (c.status === 'active') {
+    btns += '<button class="btn btn-outline" style="font-size:.73rem;padding:.25rem .55rem" onclick="suspendCompany(\'' + c.id + '\')">Zawieś</button>';
+  }
+  if (c.status === 'suspended') {
+    btns += '<button class="btn btn-primary" style="font-size:.73rem;padding:.25rem .55rem" onclick="approveCompany(\'' + c.id + '\')">Aktywuj</button>';
+  }
+  btns += '<button class="btn btn-outline" style="font-size:.73rem;padding:.25rem .55rem" onclick="openBilling(\'' + c.id + '\',\'' + esc(c.name) + '\',\'' + (c.billing_date||'') + '\',\'' + (c.next_billing_at||'') + '\')">Rozliczenie</button>';
+  btns += '<button class="btn btn-outline" style="font-size:.73rem;padding:.25rem .55rem" onclick="openPlanModal(\'' + c.id + '\',\'' + esc(c.name) + '\',\'' + esc(c.plan_id) + '\')">Plan</button>';
+  btns += '</div>';
+  return btns;
+}
+
+async function approveCompany(id) {
+  if (!confirm('Zatwierdzić firmę i aktywować użytkowników?')) return;
+  try { await API.put('/support/companies/' + id + '/approve', {}); loadCompanies(); loadDashboard(); }
+  catch(e) { alert(e.message); }
+}
+async function suspendCompany(id) {
+  if (!confirm('Zawiesić firmę?')) return;
+  try { await API.put('/support/companies/' + id + '/suspend', {}); loadCompanies(); }
+  catch(e) { alert(e.message); }
+}
+
+function openBilling(id, name, billingDate, nextBilling) {
+  currentBillingId = id;
+  document.getElementById('billingCompanyName').textContent = name;
+  document.getElementById('billingDate').value = billingDate || '';
+  document.getElementById('billingNextDate').value = nextBilling || '';
+  openModal('billingModal');
+}
+async function saveBilling() {
+  try {
+    await API.put('/support/companies/' + currentBillingId + '/billing', {
+      billing_date:    document.getElementById('billingDate').value    || null,
+      next_billing_at: document.getElementById('billingNextDate').value || null,
+    });
+    closeModal('billingModal');
+    loadCompanies();
+  } catch(e) { alert(e.message); }
+}
+
+async function openPlanModal(id, name, currentPlanIdVal) {
+  currentPlanId = id;
+  document.getElementById('planCompanyName').textContent = name;
+  if (!allPlans.length) {
+    try { allPlans = await API.get('/plans'); } catch(e) { allPlans = []; }
+  }
+  var sel = document.getElementById('planSelect');
+  sel.innerHTML = allPlans.map(function(p){
+    return '<option value="' + esc(p.id) + '"' + (p.id === currentPlanIdVal ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+  }).join('');
+  openModal('planModal');
+}
+async function savePlan() {
+  var planId = document.getElementById('planSelect').value;
+  try {
+    await API.put('/support/companies/' + currentPlanId + '/plan', { plan_id: planId });
+    closeModal('planModal');
+    loadCompanies();
+  } catch(e) { alert(e.message); }
+}
+
+// ── Users ────────────────────────────────────────────────────────
+async function loadUsers(companyId) {
+  var url = '/support/users' + (companyId ? '?company_id=' + companyId : '');
+  try {
+    allUsers = await API.get(url);
+    renderUsers(allUsers);
+  } catch(e) {
+    document.getElementById('usersBody').innerHTML = '<tr><td colspan="6" class="empty-msg">Błąd ładowania.</td></tr>';
+  }
+}
+
+function filterUsers() {
+  var companyId = document.getElementById('userCompanyFilter').value;
+  loadUsers(companyId || null);
+}
+
+function renderUsers(users) {
+  var tbody = document.getElementById('usersBody');
+  if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Brak użytkowników.</td></tr>'; return; }
+  tbody.innerHTML = users.map(function(u) {
+    var roleLabel = {pracownik:'Pracownik',admin:'Admin',super_admin:'Super Admin'}[u.role] || u.role;
+    return '<tr>' +
+      '<td><strong>' + esc(u.username) + '</strong></td>' +
+      '<td style="font-size:.82rem">' + esc(u.email||'—') + '</td>' +
+      '<td style="font-size:.82rem">' + esc(u.company_name) + '</td>' +
+      '<td style="font-size:.82rem">' + esc(roleLabel) + '</td>' +
+      '<td><span class="badge badge-' + u.status + '">' + userStatusLabel(u.status) + '</span></td>' +
+      '<td><div style="display:flex;gap:.3rem">' +
+        '<button class="btn btn-outline" style="font-size:.73rem;padding:.25rem .55rem" onclick="impersonate(\'' + esc(u.id) + '\',\'' + esc(u.username) + '\')">Zaloguj jako</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+async function impersonate(userId, username) {
+  if (!confirm('Zalogować się jako "' + username + '"?\nPowstanie tymczasowa sesja (15 minut).')) return;
+  try {
+    var res = await API.post('/support/users/' + userId + '/impersonate', {});
+    var token = res.token;
+    // Open new tab, pass token via URL to a landing page
+    var url = 'auth-impersonate.html?token=' + encodeURIComponent(token);
+    window.open(url, '_blank');
+  } catch(e) { alert(e.message || 'Błąd impersonacji.'); }
+}
+
+// ── Pools ────────────────────────────────────────────────────────
+async function loadPools() {
+  try {
+    var pools = await API.get('/support/pools');
+    renderPools(pools);
+  } catch(e) {
+    document.getElementById('poolsContainer').innerHTML = '<div class="empty-msg">Błąd ładowania.</div>';
+  }
+}
+
+async function renderPools(pools) {
+  var container = document.getElementById('poolsContainer');
+  if (!pools.length) { container.innerHTML = '<div class="empty-msg">Brak puli testowych.</div>'; return; }
+
+  var html = '';
+  for (var i = 0; i < pools.length; i++) {
+    var p = pools[i];
+    var members = [];
+    try { members = await API.get('/support/pools/' + p.id + '/members'); } catch(e) {}
+    html += '<div class="card" style="padding:1rem;margin-bottom:1rem">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">' +
+        '<div><strong>' + esc(p.name) + '</strong>' + (p.description ? ' <span style="font-size:.8rem;color:var(--text-muted)">— ' + esc(p.description) + '</span>' : '') + '</div>' +
+        '<button class="btn btn-primary" style="font-size:.75rem;padding:.3rem .65rem" onclick="openPoolMemberModal(' + p.id + ',\'' + esc(p.name) + '\')">+ Dodaj użytkownika</button>' +
+      '</div>' +
+      (p.features.length ? '<div style="margin-bottom:.75rem">' + p.features.map(function(f){ return '<span class="badge badge-active" style="margin-right:.3rem">' + esc(f) + '</span>'; }).join('') + '</div>' : '') +
+      '<table class="sp-table" style="font-size:.82rem">' +
+        '<thead><tr><th>Użytkownik</th><th>E-mail</th><th>Firma</th><th>Dodano</th><th></th></tr></thead>' +
+        '<tbody>' + (members.length
+          ? members.map(function(m) {
+              return '<tr>' +
+                '<td>' + esc(m.username) + '</td>' +
+                '<td>' + esc(m.email||'—') + '</td>' +
+                '<td>' + esc(m.company_name) + '</td>' +
+                '<td style="font-size:.75rem;color:var(--text-muted)">' + fmtDate(m.added_at) + '</td>' +
+                '<td><button class="btn btn-outline" style="font-size:.72rem;padding:.2rem .5rem;color:var(--danger,#ef4444)" onclick="removePoolMember(' + p.id + ',\'' + esc(m.id) + '\')">Usuń</button></td>' +
+              '</tr>';
+            }).join('')
+          : '<tr><td colspan="5" class="empty-msg">Brak członków.</td></tr>') +
+        '</tbody>' +
+      '</table>' +
+    '</div>';
+  }
+  container.innerHTML = html;
+}
+
+async function openPoolMemberModal(poolId, poolName) {
+  currentPoolId = poolId;
+  document.getElementById('poolMemberPoolName').textContent = poolName;
+  if (!allUsers.length) {
+    try { allUsers = await API.get('/support/users'); } catch(e) {}
+  }
+  var sel = document.getElementById('poolMemberUserSelect');
+  sel.innerHTML = allUsers.map(function(u){
+    return '<option value="' + esc(u.id) + '">' + esc(u.username) + ' (' + esc(u.company_name) + ')</option>';
+  }).join('');
+  openModal('poolMemberModal');
+}
+
+async function addPoolMember() {
+  var userId = document.getElementById('poolMemberUserSelect').value;
+  if (!userId) return;
+  try {
+    await API.post('/support/pools/' + currentPoolId + '/members', { user_id: userId });
+    closeModal('poolMemberModal');
+    loadPools();
+  } catch(e) { alert(e.message); }
+}
+
+async function removePoolMember(poolId, userId) {
+  if (!confirm('Usunąć użytkownika z puli?')) return;
+  try {
+    await API.post('/support/pools/' + poolId + '/members-remove', { user_id: userId });
+    loadPools();
+  } catch(e) { alert(e.message); }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+function openModal(id)  { var el=document.getElementById(id); el.style.display='flex'; }
+function closeModal(id) { document.getElementById(id).style.display='none'; }
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(d)     { return d ? new Date(d).toLocaleDateString('pl-PL') : '—'; }
+function fmtDateTime(d) { return d ? new Date(d).toLocaleString('pl-PL') : '—'; }
+function priorityLabel(p) { return {low:'Niski',normal:'Normalny',high:'Wysoki',urgent:'Pilny'}[p]||p; }
+function statusLabel(s)   { return {open:'Otwarte',in_progress:'W trakcie',resolved:'Rozwiązane',closed:'Zamknięte'}[s]||s; }
+function companyStatusLabel(s) { return {pending:'Oczekuje',active:'Aktywna',suspended:'Zawieszona'}[s]||s; }
+function userStatusLabel(s)    { return {active:'Aktywny',inactive:'Nieaktywny',suspended:'Zawieszony'}[s]||s; }
+
+function logout() {
+  Auth.logout();
+  window.location.href = 'login.html';
+}
+
+// ── Boot ─────────────────────────────────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>

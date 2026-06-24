@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Logowanie jako użytkownik…</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="text-align:center;padding:2.5rem 1.5rem">
+    <div class="auth-brand" style="justify-content:center;margin-bottom:1.5rem">
+      <div class="auth-brand-icon">PO</div>
+    </div>
+    <div id="msg" style="color:var(--text-muted);font-size:.95rem">Weryfikowanie sesji…</div>
+  </div>
+</div>
+<script src="js/api.js?v=2"></script>
+<script>
+(function(){ var t=localStorage.getItem('po_theme')||'light'; document.documentElement.setAttribute('data-theme',t); })();
+
+var params = new URLSearchParams(window.location.search);
+var token  = params.get('token');
+
+function showError(msg) {
+  document.getElementById('msg').innerHTML = '<div class="alert alert-error" style="margin-bottom:1rem">' + msg + '</div>' +
+    '<a href="support.html" class="btn btn-outline">Wróć do panelu</a>';
+}
+
+if (!token) {
+  showError('Brak tokenu impersonacji.');
+} else {
+  API.get('/auth/impersonation?token=' + encodeURIComponent(token))
+    .then(function(data) {
+      API.saveToken(data.token);
+      API.saveUser(data.user);
+      window.location.href = 'dashboard.html';
+    })
+    .catch(function(e) {
+      showError(e.message || 'Token nieważny lub wygasł.');
+    });
+}
+</script>
+</body>
+</html>

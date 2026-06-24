@@ -29,6 +29,10 @@ function handle_auth($method, $action, $body) {
             if ($method !== 'POST') { method_not_allowed(); return; }
             auth_reset_password($body);
             break;
+        case 'impersonation':
+            if ($method !== 'GET') { method_not_allowed(); return; }
+            auth_impersonation();
+            break;
         default:
             http_response_code(404);
             echo json_encode(['message' => 'Nie znaleziono.']);
@@ -210,6 +214,28 @@ function auth_register($body) {
         http_response_code(500);
         echo json_encode(['message' => 'Błąd serwera podczas rejestracji.']);
     }
+}
+
+function auth_impersonation() {
+    $token = trim($_GET['token'] ?? '');
+    if (!$token) { http_response_code(400); echo json_encode(['message' => 'Brak tokenu.']); return; }
+
+    $pdo  = get_pdo();
+    $stmt = $pdo->prepare('SELECT * FROM impersonation_tokens WHERE token=? AND used=0 AND expires_at > NOW()');
+    $stmt->execute([$token]);
+    $imp = $stmt->fetch();
+    if (!$imp) { http_response_code(400); echo json_encode(['message' => 'Token jest nieważny lub wygasł.']); return; }
+
+    $pdo->prepare('UPDATE impersonation_tokens SET used=1 WHERE token=?')->execute([$token]);
+
+    $uStmt = $pdo->prepare('SELECT * FROM users WHERE id=?');
+    $uStmt->execute([$imp['target_user_id']]);
+    $targetUser = $uStmt->fetch();
+    if (!$targetUser) { http_response_code(404); echo json_encode(['message' => 'Użytkownik nie znaleziony.']); return; }
+
+    $payload = build_jwt_payload($targetUser, $pdo);
+    $payload['impersonated_by'] = $imp['created_by'];
+    echo json_encode(['token' => jwt_encode($payload, JWT_SECRET), 'user' => $payload]);
 }
 
 function auth_verify_password($body) {
