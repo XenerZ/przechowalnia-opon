@@ -46,53 +46,44 @@ CREATE TABLE IF NOT EXISTS companies (
     PRIMARY KEY (id)
 );
 
--- ── 3. Domyślna firma (stały UUID — używany w całej migracji) ─
--- Jeśli tabela była już pusta, wstawi nowy rekord.
+-- ── 3. Domyślna firma (stały UUID) ───────────────────────────
 INSERT IGNORE INTO companies (id, name, email, plan_id, status)
 VALUES (
     'aaaaaaaa-0000-4000-8000-000000000001',
-    'Firma domyślna',
+    'Firma domyslna',
     COALESCE((SELECT email FROM users ORDER BY id LIMIT 1), 'admin@firma.pl'),
     'max',
     'active'
 );
 
--- ── 4. Kolumny uuid, company_id, status w tabeli users ───────
+-- ── 4. Nowe kolumny w tabeli users ───────────────────────────
 ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS uuid       CHAR(36)     NULL,
-    ADD COLUMN IF NOT EXISTS company_id CHAR(36)     NULL,
-    ADD COLUMN IF NOT EXISTS status     ENUM('active','inactive','suspended') DEFAULT 'active';
+    ADD COLUMN uuid       CHAR(36)     NULL,
+    ADD COLUMN company_id CHAR(36)     NULL,
+    ADD COLUMN status     ENUM('active','inactive','suspended') DEFAULT 'active';
 
--- Wypełnij UUID-ami (każdy użytkownik dostaje unikalny UUID)
 UPDATE users SET uuid = UUID() WHERE uuid IS NULL;
 
--- Przypisz do domyślnej firmy
 UPDATE users
 SET company_id = 'aaaaaaaa-0000-4000-8000-000000000001'
 WHERE company_id IS NULL;
 
--- Ustaw NOT NULL
 ALTER TABLE users
     MODIFY COLUMN uuid       CHAR(36) NOT NULL,
     MODIFY COLUMN company_id CHAR(36) NOT NULL;
 
-ALTER TABLE users
-    ADD UNIQUE KEY IF NOT EXISTS uk_users_uuid (uuid);
+ALTER TABLE users ADD UNIQUE KEY uk_users_uuid (uuid);
 
--- ── 5. Zmień typ user_id w user_permissions na CHAR(36) UUID ─
--- Dodaj kolumnę tymczasową z UUID
-ALTER TABLE user_permissions
-    ADD COLUMN IF NOT EXISTS user_uuid CHAR(36) NULL;
+-- ── 5. Migracja user_permissions: INT → UUID ─────────────────
+ALTER TABLE user_permissions ADD COLUMN user_uuid CHAR(36) NULL;
 
 UPDATE user_permissions up
     JOIN users u ON u.id = up.user_id
     SET up.user_uuid = u.uuid;
 
-ALTER TABLE user_permissions
-    MODIFY COLUMN user_uuid CHAR(36) NOT NULL;
+ALTER TABLE user_permissions MODIFY COLUMN user_uuid CHAR(36) NOT NULL;
 
--- ── 6. Zamień PK users z INT na UUID ─────────────────────────
--- (FOREIGN_KEY_CHECKS = 0 pozwala to zrobić bez błędów FK)
+-- ── 6. Zmiana PK users z INT na UUID ─────────────────────────
 ALTER TABLE user_permissions DROP COLUMN user_id;
 ALTER TABLE user_permissions CHANGE COLUMN user_uuid user_id CHAR(36) NOT NULL;
 
@@ -101,27 +92,20 @@ ALTER TABLE users DROP COLUMN id;
 ALTER TABLE users CHANGE COLUMN uuid id CHAR(36) NOT NULL;
 ALTER TABLE users ADD PRIMARY KEY (id);
 
--- Przywróć FK na user_permissions
 ALTER TABLE user_permissions
     ADD CONSTRAINT fk_up_user
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
--- Dodaj FK firmy
 ALTER TABLE users
     ADD CONSTRAINT fk_users_company
     FOREIGN KEY (company_id) REFERENCES companies(id);
 
 -- ── 7. company_id w tabelach danych ──────────────────────────
-ALTER TABLE tire_entries
-    ADD COLUMN IF NOT EXISTS company_id CHAR(36) NULL;
-ALTER TABLE customers
-    ADD COLUMN IF NOT EXISTS company_id CHAR(36) NULL;
-ALTER TABLE templates
-    ADD COLUMN IF NOT EXISTS company_id CHAR(36) NULL;
-ALTER TABLE email_templates
-    ADD COLUMN IF NOT EXISTS company_id CHAR(36) NULL;
-ALTER TABLE actions
-    ADD COLUMN IF NOT EXISTS company_id CHAR(36) NULL;
+ALTER TABLE tire_entries    ADD COLUMN company_id CHAR(36) NULL;
+ALTER TABLE customers       ADD COLUMN company_id CHAR(36) NULL;
+ALTER TABLE templates       ADD COLUMN company_id CHAR(36) NULL;
+ALTER TABLE email_templates ADD COLUMN company_id CHAR(36) NULL;
+ALTER TABLE actions         ADD COLUMN company_id CHAR(36) NULL;
 
 UPDATE tire_entries    SET company_id = 'aaaaaaaa-0000-4000-8000-000000000001' WHERE company_id IS NULL;
 UPDATE customers       SET company_id = 'aaaaaaaa-0000-4000-8000-000000000001' WHERE company_id IS NULL;
@@ -136,8 +120,7 @@ ALTER TABLE email_templates MODIFY COLUMN company_id CHAR(36) NOT NULL;
 ALTER TABLE actions         MODIFY COLUMN company_id CHAR(36) NOT NULL;
 
 -- ── 8. Tabela settings — scoping per firma ────────────────────
-ALTER TABLE settings
-    ADD COLUMN IF NOT EXISTS company_id CHAR(36) NOT NULL DEFAULT '';
+ALTER TABLE settings ADD COLUMN company_id CHAR(36) NOT NULL DEFAULT '';
 
 UPDATE settings
 SET company_id = 'aaaaaaaa-0000-4000-8000-000000000001'
@@ -185,7 +168,7 @@ CREATE TABLE IF NOT EXISTS registration_tokens (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
--- GOTOWE. Sprawdź wynik:
+-- GOTOWE. Sprawdz wynik:
 --   SELECT id, name, status FROM companies;
 --   SELECT id, username, company_id, status FROM users;
 -- ============================================================
