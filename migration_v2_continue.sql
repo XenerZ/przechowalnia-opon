@@ -11,11 +11,22 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ── 6. Zamiana PK users z INT na UUID ────────────────────────
+-- Zrzuć FK który blokuje zmianę typu kolumny id
+ALTER TABLE user_permissions DROP FOREIGN KEY fk_up_user;
+
+-- Zdejmij AUTO_INCREMENT, usuń stary PK i kolumnę id
 ALTER TABLE users MODIFY COLUMN id INT NOT NULL;
 ALTER TABLE users DROP PRIMARY KEY;
 ALTER TABLE users DROP COLUMN id;
+
+-- Ustaw uuid jako nowe id z PK
 ALTER TABLE users CHANGE COLUMN uuid id CHAR(36) NOT NULL;
 ALTER TABLE users ADD PRIMARY KEY (id);
+
+-- Przywróć FK (teraz oba CHAR(36))
+ALTER TABLE user_permissions
+    ADD CONSTRAINT fk_up_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
 
 -- ── 7. company_id w tabelach danych ──────────────────────────
