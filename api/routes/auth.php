@@ -140,6 +140,21 @@ function auth_register($body) {
         return;
     }
 
+    $nipDigits = preg_replace('/[\s\-]/', '', $companyNip);
+    if (!preg_match('/^\d{10}$/', $nipDigits)) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Nieprawidłowy NIP — wymagane 10 cyfr.']);
+        return;
+    }
+    $weights = [6,5,7,2,3,4,5,6,7];
+    $sum = 0;
+    for ($i = 0; $i < 9; $i++) $sum += (int)$nipDigits[$i] * $weights[$i];
+    if (($sum % 11) !== (int)$nipDigits[9]) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Nieprawidłowy NIP — błędna suma kontrolna.']);
+        return;
+    }
+
     if (!filter_var($companyEmail, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode(['message' => 'Podaj poprawny adres e-mail firmy.']);

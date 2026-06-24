@@ -253,6 +253,15 @@ function renderPlans(plans) {
   if (firstCard) firstCard.click();
 }
 
+function validateNip(nip) {
+  var digits = nip.replace(/[\s\-]/g, '');
+  if (!/^\d{10}$/.test(digits)) return false;
+  var weights = [6,5,7,2,3,4,5,6,7];
+  var sum = 0;
+  for (var i = 0; i < 9; i++) sum += parseInt(digits[i]) * weights[i];
+  return (sum % 11) === parseInt(digits[9]);
+}
+
 function showErr(id, msg) {
   var el = document.getElementById(id);
   if (el) { el.textContent = msg; el.style.display = 'block'; }
@@ -282,6 +291,7 @@ async function submitReg(e) {
   var ok = true;
   if (!cName)                                            { showErr('cNameErr',    'Pole wymagane'); ok = false; }
   if (!cNip)                                             { showErr('cNipErr',     'Pole wymagane'); ok = false; }
+  else if (!validateNip(cNip))                           { showErr('cNipErr',     'Nieprawidłowy NIP'); ok = false; }
   if (!cPhone)                                           { showErr('cPhoneErr',   'Pole wymagane'); ok = false; }
   if (!cAddress)                                         { showErr('cAddressErr', 'Pole wymagane'); ok = false; }
   if (!cCity)                                            { showErr('cCityErr',    'Pole wymagane'); ok = false; }
