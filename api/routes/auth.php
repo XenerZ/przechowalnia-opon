@@ -92,8 +92,8 @@ function auth_login($body) {
     }
 
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('SELECT u.*, c.status AS company_status FROM users u JOIN companies c ON u.company_id = c.id WHERE u.username = ?');
-    $stmt->execute([$username]);
+    $stmt = $pdo->prepare('SELECT u.*, c.status AS company_status FROM users u JOIN companies c ON u.company_id = c.id WHERE u.username = ? OR u.email = ?');
+    $stmt->execute([$username, $username]);
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password'])) {

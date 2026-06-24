@@ -155,15 +155,8 @@
 
       <!-- Konto użytkownika -->
       <div class="reg-section-title">Konto administratora</div>
+      <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.85rem">Loginem do konta będzie adres e-mail firmy podany powyżej.</p>
       <div class="reg-grid">
-        <div class="form-group">
-          <label>Nazwa użytkownika *</label>
-          <input type="text" id="uUsername" placeholder="login" autocomplete="username">
-          <span class="form-error" id="uUsernameErr" style="display:none"></span>
-        </div>
-        <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end">
-          <label style="font-size:.72rem;color:var(--text-muted)">Będzie używana do logowania</label>
-        </div>
         <div class="form-group">
           <label>Hasło *</label>
           <input type="password" id="uPass" placeholder="min. 6 znaków" autocomplete="new-password">
@@ -260,7 +253,7 @@ function showErr(id, msg) {
   if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 function clearErrors() {
-  ['cNameErr','cEmailErr','uUsernameErr','uPassErr','uPass2Err','planErr'].forEach(function(id){
+  ['cNameErr','cEmailErr','uPassErr','uPass2Err','planErr'].forEach(function(id){
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -278,20 +271,18 @@ async function submitReg(e) {
   var cCity    = document.getElementById('cCity').value.trim();
   var cPostal  = document.getElementById('cPostal').value.trim();
   var cEmail   = document.getElementById('cEmail').value.trim();
-  var uUsername = document.getElementById('uUsername').value.trim();
   var uPass    = document.getElementById('uPass').value;
   var uPass2   = document.getElementById('uPass2').value;
 
   var ok = true;
-  if (!cName)                        { showErr('cNameErr', 'Pole wymagane'); ok = false; }
-  if (!cEmail)                       { showErr('cEmailErr', 'Pole wymagane'); ok = false; }
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cEmail)) { showErr('cEmailErr', 'Podaj poprawny adres e-mail'); ok = false; }
-  if (!uUsername)                    { showErr('uUsernameErr', 'Pole wymagane'); ok = false; }
-  if (!uPass)                        { showErr('uPassErr', 'Pole wymagane'); ok = false; }
-  else if (uPass.length < 6)        { showErr('uPassErr', 'Minimum 6 znaków'); ok = false; }
-  if (!uPass2)                       { showErr('uPass2Err', 'Pole wymagane'); ok = false; }
-  else if (uPass !== uPass2)        { showErr('uPass2Err', 'Hasła nie są identyczne'); ok = false; }
-  if (!selectedPlan)                 { showErr('planErr', 'Wybierz pakiet'); ok = false; }
+  if (!cName)                                                  { showErr('cNameErr', 'Pole wymagane'); ok = false; }
+  if (!cEmail)                                                 { showErr('cEmailErr', 'Pole wymagane'); ok = false; }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cEmail))       { showErr('cEmailErr', 'Podaj poprawny adres e-mail'); ok = false; }
+  if (!uPass)                                                  { showErr('uPassErr', 'Pole wymagane'); ok = false; }
+  else if (uPass.length < 6)                                   { showErr('uPassErr', 'Minimum 6 znaków'); ok = false; }
+  if (!uPass2)                                                 { showErr('uPass2Err', 'Pole wymagane'); ok = false; }
+  else if (uPass !== uPass2)                                   { showErr('uPass2Err', 'Hasła nie są identyczne'); ok = false; }
+  if (!selectedPlan)                                           { showErr('planErr', 'Wybierz pakiet'); ok = false; }
   if (!ok) return;
 
   var btn = document.getElementById('regBtn');
@@ -309,7 +300,7 @@ async function submitReg(e) {
         email:       cEmail,
       },
       user: {
-        username: uUsername,
+        username: cEmail,
         password: uPass,
       },
       plan_id: selectedPlan,
