@@ -127,24 +127,29 @@
           <span class="form-error" id="cNameErr" style="display:none"></span>
         </div>
         <div class="form-group">
-          <label>NIP</label>
+          <label>NIP *</label>
           <input type="text" id="cNip" placeholder="0000000000" maxlength="20">
+          <span class="form-error" id="cNipErr" style="display:none"></span>
         </div>
         <div class="form-group">
-          <label>Telefon</label>
+          <label>Telefon *</label>
           <input type="tel" id="cPhone" placeholder="+48 000 000 000">
+          <span class="form-error" id="cPhoneErr" style="display:none"></span>
         </div>
         <div class="form-group full">
-          <label>Adres (ulica i numer)</label>
+          <label>Adres (ulica i numer) *</label>
           <input type="text" id="cAddress" placeholder="ul. Przykładowa 1">
+          <span class="form-error" id="cAddressErr" style="display:none"></span>
         </div>
         <div class="form-group">
-          <label>Miasto</label>
+          <label>Miasto *</label>
           <input type="text" id="cCity" placeholder="Warszawa">
+          <span class="form-error" id="cCityErr" style="display:none"></span>
         </div>
         <div class="form-group">
-          <label>Kod pocztowy</label>
+          <label>Kod pocztowy *</label>
           <input type="text" id="cPostal" placeholder="00-000" maxlength="10">
+          <span class="form-error" id="cPostalErr" style="display:none"></span>
         </div>
         <div class="form-group full">
           <label>E-mail firmy *</label>
@@ -253,7 +258,7 @@ function showErr(id, msg) {
   if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 function clearErrors() {
-  ['cNameErr','cEmailErr','uPassErr','uPass2Err','planErr'].forEach(function(id){
+  ['cNameErr','cNipErr','cPhoneErr','cAddressErr','cCityErr','cPostalErr','cEmailErr','uPassErr','uPass2Err','planErr'].forEach(function(id){
     var el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -275,14 +280,19 @@ async function submitReg(e) {
   var uPass2   = document.getElementById('uPass2').value;
 
   var ok = true;
-  if (!cName)                                                  { showErr('cNameErr', 'Pole wymagane'); ok = false; }
-  if (!cEmail)                                                 { showErr('cEmailErr', 'Pole wymagane'); ok = false; }
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cEmail))       { showErr('cEmailErr', 'Podaj poprawny adres e-mail'); ok = false; }
-  if (!uPass)                                                  { showErr('uPassErr', 'Pole wymagane'); ok = false; }
-  else if (uPass.length < 6)                                   { showErr('uPassErr', 'Minimum 6 znaków'); ok = false; }
-  if (!uPass2)                                                 { showErr('uPass2Err', 'Pole wymagane'); ok = false; }
-  else if (uPass !== uPass2)                                   { showErr('uPass2Err', 'Hasła nie są identyczne'); ok = false; }
-  if (!selectedPlan)                                           { showErr('planErr', 'Wybierz pakiet'); ok = false; }
+  if (!cName)                                            { showErr('cNameErr',    'Pole wymagane'); ok = false; }
+  if (!cNip)                                             { showErr('cNipErr',     'Pole wymagane'); ok = false; }
+  if (!cPhone)                                           { showErr('cPhoneErr',   'Pole wymagane'); ok = false; }
+  if (!cAddress)                                         { showErr('cAddressErr', 'Pole wymagane'); ok = false; }
+  if (!cCity)                                            { showErr('cCityErr',    'Pole wymagane'); ok = false; }
+  if (!cPostal)                                          { showErr('cPostalErr',  'Pole wymagane'); ok = false; }
+  if (!cEmail)                                           { showErr('cEmailErr',   'Pole wymagane'); ok = false; }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cEmail))  { showErr('cEmailErr',   'Podaj poprawny adres e-mail'); ok = false; }
+  if (!uPass)                                            { showErr('uPassErr',    'Pole wymagane'); ok = false; }
+  else if (uPass.length < 6)                             { showErr('uPassErr',    'Minimum 6 znaków'); ok = false; }
+  if (!uPass2)                                           { showErr('uPass2Err',   'Pole wymagane'); ok = false; }
+  else if (uPass !== uPass2)                             { showErr('uPass2Err',   'Hasła nie są identyczne'); ok = false; }
+  if (!selectedPlan)                                     { showErr('planErr',     'Wybierz pakiet'); ok = false; }
   if (!ok) return;
 
   var btn = document.getElementById('regBtn');
