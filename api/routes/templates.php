@@ -2,49 +2,36 @@
 require_once __DIR__ . '/../helpers/auth.php';
 
 function handle_templates($method, $id, $body) {
-    $user = require_auth();
+    $user       = require_auth();
+    $company_id = $user['company_id'];
 
     if ($id) {
         switch ($method) {
-            case 'GET':
-                templates_get($id);
-                break;
-            case 'PUT':
-                require_permission($user, 'manage_users');
-                templates_update($id, $body);
-                break;
-            case 'DELETE':
-                require_permission($user, 'manage_users');
-                templates_delete($id);
-                break;
-            default:
-                method_not_allowed();
+            case 'GET':    templates_get($id, $company_id);             break;
+            case 'PUT':    require_permission($user, 'manage_users'); templates_update($id, $body, $company_id); break;
+            case 'DELETE': require_permission($user, 'manage_users'); templates_delete($id, $company_id);        break;
+            default: method_not_allowed();
         }
     } else {
         switch ($method) {
-            case 'GET':
-                templates_list();
-                break;
-            case 'POST':
-                require_permission($user, 'manage_users');
-                templates_create($body);
-                break;
-            default:
-                method_not_allowed();
+            case 'GET':  templates_list($company_id);                                                     break;
+            case 'POST': require_permission($user, 'manage_users'); templates_create($body, $company_id); break;
+            default: method_not_allowed();
         }
     }
 }
 
-function templates_list() {
+function templates_list($company_id) {
     $pdo  = get_pdo();
-    $rows = $pdo->query('SELECT id, name, page_size AS pageSize, created_at AS createdAt, updated_at AS updatedAt FROM templates ORDER BY id')->fetchAll();
-    echo json_encode($rows);
+    $stmt = $pdo->prepare('SELECT id, name, page_size AS pageSize, created_at AS createdAt, updated_at AS updatedAt FROM templates WHERE company_id = ? ORDER BY id');
+    $stmt->execute([$company_id]);
+    echo json_encode($stmt->fetchAll());
 }
 
-function templates_get($id) {
+function templates_get($id, $company_id) {
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('SELECT id, name, html_content AS htmlContent, page_size AS pageSize, created_at AS createdAt, updated_at AS updatedAt FROM templates WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $pdo->prepare('SELECT id, name, html_content AS htmlContent, page_size AS pageSize, created_at AS createdAt, updated_at AS updatedAt FROM templates WHERE id = ? AND company_id = ?');
+    $stmt->execute([$id, $company_id]);
     $row  = $stmt->fetch();
     if (!$row) {
         http_response_code(404);
@@ -54,7 +41,7 @@ function templates_get($id) {
     echo json_encode($row);
 }
 
-function templates_create($body) {
+function templates_create($body, $company_id) {
     $name        = trim($body['name'] ?? '');
     $htmlContent = $body['htmlContent'] ?? '';
     $pageSize    = $body['pageSize']    ?? 'A4';
@@ -66,8 +53,8 @@ function templates_create($body) {
     }
 
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('INSERT INTO templates (name, html_content, page_size) VALUES (?, ?, ?)');
-    $stmt->execute([$name, $htmlContent, $pageSize]);
+    $stmt = $pdo->prepare('INSERT INTO templates (name, html_content, page_size, company_id) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$name, $htmlContent, $pageSize, $company_id]);
     $newId = $pdo->lastInsertId();
 
     $row = $pdo->prepare('SELECT id, name, page_size AS pageSize, created_at AS createdAt FROM templates WHERE id = ?');
@@ -76,10 +63,10 @@ function templates_create($body) {
     echo json_encode($row->fetch());
 }
 
-function templates_update($id, $body) {
+function templates_update($id, $body, $company_id) {
     $pdo    = get_pdo();
-    $exists = $pdo->prepare('SELECT id FROM templates WHERE id = ?');
-    $exists->execute([$id]);
+    $exists = $pdo->prepare('SELECT id FROM templates WHERE id = ? AND company_id = ?');
+    $exists->execute([$id, $company_id]);
     if (!$exists->fetch()) {
         http_response_code(404);
         echo json_encode(['message' => 'Szablon nie istnieje.']);
@@ -100,17 +87,18 @@ function templates_update($id, $body) {
     }
 
     $vals[] = $id;
-    $pdo->prepare('UPDATE templates SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($vals);
+    $vals[] = $company_id;
+    $pdo->prepare('UPDATE templates SET ' . implode(', ', $fields) . ' WHERE id = ? AND company_id = ?')->execute($vals);
 
     $row = $pdo->prepare('SELECT id, name, updated_at AS updatedAt FROM templates WHERE id = ?');
     $row->execute([$id]);
     echo json_encode($row->fetch());
 }
 
-function templates_delete($id) {
+function templates_delete($id, $company_id) {
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('DELETE FROM templates WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $pdo->prepare('DELETE FROM templates WHERE id = ? AND company_id = ?');
+    $stmt->execute([$id, $company_id]);
     if ($stmt->rowCount() === 0) {
         http_response_code(404);
         echo json_encode(['message' => 'Szablon nie istnieje.']);

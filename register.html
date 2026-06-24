@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rejestracja — Przechowalnia Opon</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
+  <link rel="manifest" href="assets/favicon/site.webmanifest">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .reg-page {
+      min-height: 100vh;
+      background: #1a3358;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .reg-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 2rem;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    }
+    .reg-section-title {
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 1.5rem 0 .75rem;
+      padding-bottom: .35rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .reg-section-title:first-of-type { margin-top: 0; }
+    .reg-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 1rem;
+    }
+    .reg-grid .form-group.full { grid-column: 1 / -1; }
+
+    /* Karty planów */
+    .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: .75rem;
+      margin-bottom: .5rem;
+    }
+    .plan-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: .85rem .75rem;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      position: relative;
+    }
+    .plan-card:hover { border-color: var(--primary); }
+    .plan-card.selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,86,176,.15);
+    }
+    .plan-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0; height: 0;
+    }
+    .plan-name {
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: .35rem;
+    }
+    .plan-feature {
+      font-size: .75rem;
+      color: var(--text-sub);
+      line-height: 1.6;
+    }
+    .plan-feature::before { content: '+ '; color: var(--success); font-weight: 700; }
+    .plan-feature.plan-feature--no::before { content: '– '; color: var(--text-muted); }
+
+    .reg-footer {
+      margin-top: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+    .reg-back {
+      text-align: center;
+      font-size: .82rem;
+      color: var(--text-muted);
+    }
+    .reg-back a { color: var(--primary); text-decoration: none; }
+    .reg-back a:hover { text-decoration: underline; }
+
+    @media (max-width: 500px) {
+      .reg-grid { grid-template-columns: 1fr; }
+      .reg-grid .form-group.full { grid-column: 1; }
+      .plans-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="reg-page">
+  <div class="reg-card">
+    <div class="auth-brand">
+      <div class="auth-brand-icon">PO</div>
+      <div>
+        <h1 class="auth-title">Przechowalnia Opon</h1>
+        <p class="auth-subtitle">Rejestracja firmy</p>
+      </div>
+    </div>
+
+    <form id="regForm" onsubmit="submitReg(event)" novalidate>
+      <div id="regAlert"></div>
+
+      <!-- Dane firmy -->
+      <div class="reg-section-title">Dane firmy</div>
+      <div class="reg-grid">
+        <div class="form-group full">
+          <label>Nazwa firmy *</label>
+          <input type="text" id="cName" placeholder="Firma sp. z o.o." autocomplete="organization">
+          <span class="form-error" id="cNameErr" style="display:none"></span>
+        </div>
+        <div class="form-group">
+          <label>NIP</label>
+          <input type="text" id="cNip" placeholder="0000000000" maxlength="20">
+        </div>
+        <div class="form-group">
+          <label>Telefon</label>
+          <input type="tel" id="cPhone" placeholder="+48 000 000 000">
+        </div>
+        <div class="form-group full">
+          <label>Adres (ulica i numer)</label>
+          <input type="text" id="cAddress" placeholder="ul. Przykładowa 1">
+        </div>
+        <div class="form-group">
+          <label>Miasto</label>
+          <input type="text" id="cCity" placeholder="Warszawa">
+        </div>
+        <div class="form-group">
+          <label>Kod pocztowy</label>
+          <input type="text" id="cPostal" placeholder="00-000" maxlength="10">
+        </div>
+        <div class="form-group full">
+          <label>E-mail firmy *</label>
+          <input type="email" id="cEmail" placeholder="kontakt@firma.pl" autocomplete="email">
+          <span class="form-error" id="cEmailErr" style="display:none"></span>
+        </div>
+      </div>
+
+      <!-- Konto użytkownika -->
+      <div class="reg-section-title">Konto administratora</div>
+      <div class="reg-grid">
+        <div class="form-group">
+          <label>Nazwa użytkownika *</label>
+          <input type="text" id="uUsername" placeholder="login" autocomplete="username">
+          <span class="form-error" id="uUsernameErr" style="display:none"></span>
+        </div>
+        <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end">
+          <label style="font-size:.72rem;color:var(--text-muted)">Będzie używana do logowania</label>
+        </div>
+        <div class="form-group">
+          <label>Hasło *</label>
+          <input type="password" id="uPass" placeholder="min. 6 znaków" autocomplete="new-password">
+          <span class="form-error" id="uPassErr" style="display:none"></span>
+        </div>
+        <div class="form-group">
+          <label>Powtórz hasło *</label>
+          <input type="password" id="uPass2" placeholder="••••••••" autocomplete="new-password">
+          <span class="form-error" id="uPass2Err" style="display:none"></span>
+        </div>
+      </div>
+
+      <!-- Wybór pakietu -->
+      <div class="reg-section-title">Pakiet</div>
+      <div class="plans-grid" id="plansGrid">
+        <div style="color:var(--text-muted);font-size:.85rem">Ładowanie pakietów…</div>
+      </div>
+      <span class="form-error" id="planErr" style="display:none"></span>
+
+      <div class="reg-footer">
+        <button type="submit" class="btn btn-primary btn-block" id="regBtn">Wyślij wniosek rejestracji</button>
+        <div class="reg-back">Masz już konto? <a href="login.html">Zaloguj się</a></div>
+      </div>
+    </form>
+
+    <!-- Sukces -->
+    <div id="regSuccess" style="display:none;text-align:center;padding:1rem 0">
+      <div style="font-size:2rem;margin-bottom:.75rem">&#10003;</div>
+      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:.5rem">Wniosek przyjęty</h2>
+      <p style="font-size:.88rem;color:var(--text-sub);margin-bottom:1.25rem">
+        Twoje konto zostanie aktywowane po weryfikacji przez administratora.<br>
+        Otrzymasz powiadomienie na adres e-mail firmy.
+      </p>
+      <a href="login.html" class="btn btn-outline">Wróć do logowania</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js?v=2"></script>
+<script>
+(function(){ var t=localStorage.getItem('po_theme')||'light'; document.documentElement.setAttribute('data-theme',t); })();
+
+var selectedPlan = null;
+
+// Załaduj plany z API
+async function loadPlans() {
+  try {
+    var plans = await API.get('/plans');
+    renderPlans(plans);
+  } catch(e) {
+    document.getElementById('plansGrid').innerHTML =
+      '<div style="color:var(--text-muted);font-size:.85rem">Nie udało się załadować pakietów.</div>';
+  }
+}
+
+function renderPlans(plans) {
+  var grid = document.getElementById('plansGrid');
+  if (!plans || !plans.length) { grid.innerHTML = '<div style="color:var(--text-muted)">Brak dostępnych pakietów.</div>'; return; }
+
+  grid.innerHTML = plans.map(function(p) {
+    var features = [];
+    if (p.maxTires !== null) features.push({ text: 'Do ' + p.maxTires + ' wpisów opon', on: true });
+    else                     features.push({ text: 'Nielimitowane wpisy', on: true });
+    features.push({ text: 'Baza klientów', on: p.hasCustomers });
+    features.push({ text: 'Akcje automatyczne', on: p.hasActions });
+
+    return '<label class="plan-card" data-plan="' + p.id + '">' +
+      '<input type="radio" name="plan" value="' + p.id + '">' +
+      '<div class="plan-name">' + p.name + '</div>' +
+      features.map(function(f) {
+        return '<div class="plan-feature' + (f.on ? '' : ' plan-feature--no') + '">' + f.text + '</div>';
+      }).join('') +
+    '</label>';
+  }).join('');
+
+  // Kliknięcie karty
+  grid.querySelectorAll('.plan-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      grid.querySelectorAll('.plan-card').forEach(function(c){ c.classList.remove('selected'); });
+      card.classList.add('selected');
+      selectedPlan = card.dataset.plan;
+      card.querySelector('input[type="radio"]').checked = true;
+      document.getElementById('planErr').style.display = 'none';
+    });
+  });
+
+  // Domyślnie zaznacz Free
+  var firstCard = grid.querySelector('.plan-card');
+  if (firstCard) firstCard.click();
+}
+
+function showErr(id, msg) {
+  var el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+function clearErrors() {
+  ['cNameErr','cEmailErr','uUsernameErr','uPassErr','uPass2Err','planErr'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('regAlert').innerHTML = '';
+}
+
+async function submitReg(e) {
+  e.preventDefault();
+  clearErrors();
+
+  var cName    = document.getElementById('cName').value.trim();
+  var cNip     = document.getElementById('cNip').value.trim();
+  var cPhone   = document.getElementById('cPhone').value.trim();
+  var cAddress = document.getElementById('cAddress').value.trim();
+  var cCity    = document.getElementById('cCity').value.trim();
+  var cPostal  = document.getElementById('cPostal').value.trim();
+  var cEmail   = document.getElementById('cEmail').value.trim();
+  var uUsername = document.getElementById('uUsername').value.trim();
+  var uPass    = document.getElementById('uPass').value;
+  var uPass2   = document.getElementById('uPass2').value;
+
+  var ok = true;
+  if (!cName)                        { showErr('cNameErr', 'Pole wymagane'); ok = false; }
+  if (!cEmail)                       { showErr('cEmailErr', 'Pole wymagane'); ok = false; }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cEmail)) { showErr('cEmailErr', 'Podaj poprawny adres e-mail'); ok = false; }
+  if (!uUsername)                    { showErr('uUsernameErr', 'Pole wymagane'); ok = false; }
+  if (!uPass)                        { showErr('uPassErr', 'Pole wymagane'); ok = false; }
+  else if (uPass.length < 6)        { showErr('uPassErr', 'Minimum 6 znaków'); ok = false; }
+  if (!uPass2)                       { showErr('uPass2Err', 'Pole wymagane'); ok = false; }
+  else if (uPass !== uPass2)        { showErr('uPass2Err', 'Hasła nie są identyczne'); ok = false; }
+  if (!selectedPlan)                 { showErr('planErr', 'Wybierz pakiet'); ok = false; }
+  if (!ok) return;
+
+  var btn = document.getElementById('regBtn');
+  btn.disabled = true; btn.textContent = 'Wysyłanie…';
+
+  try {
+    await API.post('/auth/register', {
+      company: {
+        name:        cName,
+        nip:         cNip,
+        address:     cAddress,
+        city:        cCity,
+        postal_code: cPostal,
+        phone:       cPhone,
+        email:       cEmail,
+      },
+      user: {
+        username: uUsername,
+        password: uPass,
+      },
+      plan_id: selectedPlan,
+    });
+
+    document.getElementById('regForm').style.display = 'none';
+    document.getElementById('regSuccess').style.display = 'block';
+  } catch(ex) {
+    document.getElementById('regAlert').innerHTML =
+      '<div class="alert alert-error" style="margin-bottom:1rem">' + (ex.message || 'Błąd serwera.') + '</div>';
+    btn.disabled = false; btn.textContent = 'Wyślij wniosek rejestracji';
+  }
+}
+
+loadPlans();
+</script>
+</body>
+</html>

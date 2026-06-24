@@ -988,6 +988,22 @@ code {
     border: 1px solid var(--border);
 }
 
+/* Plan badge in navbar */
+.navbar-plan-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    border-radius: 2px;
+    vertical-align: middle;
+    line-height: 1.5;
+    text-transform: uppercase;
+}
+.navbar-plan-badge--free  { background: #e2e8f0; color: #4a5568; }
+.navbar-plan-badge--mid   { background: #dbeafe; color: #1a56b0; }
+.navbar-plan-badge--max   { background: #fef3c7; color: #92400e; }
+
 /* ===== ALERTS ===== */
 .alert {
     padding: 0.65rem 0.9rem;

@@ -1,13 +1,12 @@
 <?php
 require_once __DIR__ . '/smtp.php';
 
-function send_mail(string $to, string $subject, string $htmlBody): bool {
-    $cfg = get_smtp_config();
+function send_mail(string $to, string $subject, string $htmlBody, ?string $company_id = null): bool {
+    $cfg = get_smtp_config($company_id);
     if ($cfg !== null) {
         $smtp = new SimpleSmtp($cfg);
         return $smtp->send($to, $subject, $htmlBody);
     }
-    // Fallback: PHP mail()
     $fromEmail = defined('MAIL_FROM')      ? MAIL_FROM      : '';
     $fromName  = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : '';
     if (!$fromEmail) {
@@ -22,10 +21,15 @@ function send_mail(string $to, string $subject, string $htmlBody): bool {
     return true;
 }
 
-function get_smtp_config(): ?array {
+function get_smtp_config(?string $company_id = null): ?array {
     try {
-        $pdo  = get_pdo();
-        $stmt = $pdo->query("SELECT `key`, `value` FROM settings WHERE `key` LIKE 'smtp_%'");
+        $pdo = get_pdo();
+        if ($company_id !== null) {
+            $stmt = $pdo->prepare("SELECT `key`, `value` FROM settings WHERE company_id = ? AND `key` LIKE 'smtp_%'");
+            $stmt->execute([$company_id]);
+        } else {
+            $stmt = $pdo->query("SELECT `key`, `value` FROM settings WHERE `key` LIKE 'smtp_%' LIMIT 50");
+        }
         $rows = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
         if (empty($rows['smtp_host'])) return null;
         return [

@@ -5,42 +5,45 @@ function handle_smtp_settings($method, $id, $body) {
     $user = require_auth();
     require_permission($user, 'manage_users');
 
-    if ($method === 'GET')                        { smtp_get();          return; }
-    if ($method === 'PUT')                        { smtp_save($body);    return; }
-    if ($method === 'POST' && $id === 'test')     { smtp_test($body);    return; }
-    if ($method === 'DELETE')                     { smtp_clear();        return; }
+    $company_id = $user['company_id'];
+
+    if ($method === 'GET')                     { smtp_get($company_id);          return; }
+    if ($method === 'PUT')                     { smtp_save($body, $company_id);  return; }
+    if ($method === 'POST' && $id === 'test')  { smtp_test($body, $company_id);  return; }
+    if ($method === 'DELETE')                  { smtp_clear($company_id);        return; }
     method_not_allowed();
 }
 
-function smtp_get() {
+function smtp_get($company_id) {
     $pdo  = get_pdo();
-    $stmt = $pdo->query("SELECT `key`, `value` FROM settings WHERE `key` LIKE 'smtp_%'");
+    $stmt = $pdo->prepare("SELECT `key`, `value` FROM settings WHERE company_id = ? AND `key` LIKE 'smtp_%'");
+    $stmt->execute([$company_id]);
     $rows = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     $rows['smtp_pass_set'] = !empty($rows['smtp_pass']) ? '1' : '0';
     unset($rows['smtp_pass']);
     echo json_encode($rows);
 }
 
-function smtp_save($body) {
+function smtp_save($body, $company_id) {
     $pdo    = get_pdo();
     $fields = ['smtp_host','smtp_port','smtp_encryption','smtp_user','smtp_pass','smtp_from_email','smtp_from_name'];
-    $stmt   = $pdo->prepare("INSERT INTO settings (`key`,`value`) VALUES (?,?) ON DUPLICATE KEY UPDATE `value`=?");
+    $stmt   = $pdo->prepare("INSERT INTO settings (company_id, `key`, `value`) VALUES (?,?,?) ON DUPLICATE KEY UPDATE `value`=?");
     foreach ($fields as $key) {
         if (!array_key_exists($key, $body)) continue;
         $val = trim((string)$body[$key]);
         if ($key === 'smtp_pass' && $val === '') continue;
-        $stmt->execute([$key, $val, $val]);
+        $stmt->execute([$company_id, $key, $val, $val]);
     }
-    smtp_get();
+    smtp_get($company_id);
 }
 
-function smtp_clear() {
+function smtp_clear($company_id) {
     $pdo = get_pdo();
-    $pdo->exec("DELETE FROM settings WHERE `key` LIKE 'smtp_%'");
+    $pdo->prepare("DELETE FROM settings WHERE company_id = ? AND `key` LIKE 'smtp_%'")->execute([$company_id]);
     echo json_encode(['success' => true]);
 }
 
-function smtp_test($body) {
+function smtp_test($body, $company_id) {
     $email = trim($body['email'] ?? '');
     if (!$email) {
         http_response_code(400);
@@ -56,7 +59,8 @@ function smtp_test($body) {
           . '<h2 style="color:#1a56db">Test SMTP</h2>'
           . '<p>Jeśli widzisz tę wiadomość, konfiguracja e-mail działa poprawnie.</p>'
           . '<p style="color:#888;font-size:.85rem">Wysłano: ' . date('Y-m-d H:i:s') . '</p>'
-          . '</div>'
+          . '</div>',
+            $company_id
         );
         echo json_encode(['success' => true]);
     } catch (Exception $e) {

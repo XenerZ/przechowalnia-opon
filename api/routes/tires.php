@@ -24,23 +24,24 @@ define('TIRE_SELECT', '
 ');
 
 function handle_tires($method, $id, $body) {
-    $user = require_auth();
+    $user       = require_auth();
+    $company_id = $user['company_id'];
 
     if ($id === 'stats' && $method === 'GET') {
-        tires_stats();
+        tires_stats($company_id);
         return;
     }
 
     if ($id) {
         switch ($method) {
-            case 'PUT':    require_permission($user, 'edit_entries');   tires_update($id, $body); break;
-            case 'DELETE': require_permission($user, 'delete_entries'); tires_delete($id);        break;
+            case 'PUT':    require_permission($user, 'edit_entries');   tires_update($id, $body, $company_id); break;
+            case 'DELETE': require_permission($user, 'delete_entries'); tires_delete($id, $company_id);        break;
             default: method_not_allowed();
         }
     } else {
         switch ($method) {
-            case 'GET':  tires_list();                                               break;
-            case 'POST': require_permission($user, 'add_entries'); tires_create($body); break;
+            case 'GET':  tires_list($company_id);                                               break;
+            case 'POST': require_permission($user, 'add_entries'); tires_create($body, $company_id); break;
             default: method_not_allowed();
         }
     }
@@ -67,9 +68,9 @@ function format_tire($row) {
     ];
 }
 
-function find_or_create_customer($pdo, $fullName, $phone, $email = null) {
-    $stmt = $pdo->prepare("SELECT id FROM customers WHERE full_name = ? AND COALESCE(phone,'') = COALESCE(?,'')");
-    $stmt->execute([$fullName, $phone ?: '']);
+function find_or_create_customer($pdo, $fullName, $phone, $email, $company_id) {
+    $stmt = $pdo->prepare("SELECT id FROM customers WHERE full_name = ? AND COALESCE(phone,'') = COALESCE(?,'') AND company_id = ?");
+    $stmt->execute([$fullName, $phone ?: '', $company_id]);
     $row = $stmt->fetch();
     if ($row) {
         if ($email !== null) {
@@ -77,41 +78,63 @@ function find_or_create_customer($pdo, $fullName, $phone, $email = null) {
         }
         return $row['id'];
     }
-    $stmt = $pdo->prepare('INSERT INTO customers (full_name, phone, email) VALUES (?, ?, ?)');
-    $stmt->execute([$fullName, $phone ?: null, $email ?: null]);
+    $stmt = $pdo->prepare('INSERT INTO customers (full_name, phone, email, company_id) VALUES (?, ?, ?, ?)');
+    $stmt->execute([$fullName, $phone ?: null, $email ?: null, $company_id]);
     return $pdo->lastInsertId();
 }
 
-function tires_list() {
+function tires_list($company_id) {
     try {
         $pdo  = get_pdo();
-        $rows = $pdo->query(TIRE_SELECT . ' ORDER BY te.id')->fetchAll();
-        echo json_encode(array_map('format_tire', $rows));
+        $stmt = $pdo->prepare(TIRE_SELECT . ' WHERE te.company_id = ? ORDER BY te.id');
+        $stmt->execute([$company_id]);
+        echo json_encode(array_map('format_tire', $stmt->fetchAll()));
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['message' => 'tires_list: ' . $e->getMessage()]);
     }
 }
 
-function tires_stats() {
+function tires_stats($company_id) {
     try {
-        $pdo      = get_pdo();
-        $total    = $pdo->query('SELECT COUNT(*) AS n FROM tire_entries')->fetch()['n'];
-        $inStore  = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE status = 'W przechowalni'")->fetch()['n'];
-        $released = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE status = 'Wydane'")->fetch()['n'];
+        $pdo = get_pdo();
 
-        $weekStart = 'DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)';
-        $weekEnd   = "DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)";
+        $q = fn($sql) => $pdo->prepare($sql)->execute([$company_id]) ?: null;
 
-        $relWeek = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE date_out >= $weekStart AND date_out < $weekEnd AND status = 'Wydane'")->fetch()['n'];
-        $recWeek = $pdo->query("SELECT COUNT(*) AS n FROM tire_entries WHERE date_in  >= $weekStart AND date_in  < $weekEnd")->fetch()['n'];
+        $stmt = $pdo->prepare('SELECT COUNT(*) AS n FROM tire_entries WHERE company_id = ?');
+        $stmt->execute([$company_id]); $total = (int)$stmt->fetch()['n'];
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS n FROM tire_entries WHERE company_id = ? AND status = 'W przechowalni'");
+        $stmt->execute([$company_id]); $inStore = (int)$stmt->fetch()['n'];
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS n FROM tire_entries WHERE company_id = ? AND status = 'Wydane'");
+        $stmt->execute([$company_id]); $released = (int)$stmt->fetch()['n'];
+
+        $wS = 'DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)';
+        $wE = "DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)";
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS n FROM tire_entries WHERE company_id = ? AND date_out >= $wS AND date_out < $wE AND status = 'Wydane'");
+        $stmt->execute([$company_id]); $relWeek = (int)$stmt->fetch()['n'];
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS n FROM tire_entries WHERE company_id = ? AND date_in >= $wS AND date_in < $wE");
+        $stmt->execute([$company_id]); $recWeek = (int)$stmt->fetch()['n'];
+
+        // Limit planu
+        $planStmt = $pdo->prepare('SELECT p.max_tires FROM companies c JOIN plans p ON c.plan_id = p.id WHERE c.id = ?');
+        $planStmt->execute([$company_id]);
+        $maxTires = $planStmt->fetch()['max_tires'];
 
         echo json_encode([
-            'total'            => (int)$total,
-            'inStorage'        => (int)$inStore,
-            'released'         => (int)$released,
-            'releasedThisWeek' => (int)$relWeek,
-            'receivedThisWeek' => (int)$recWeek,
+            'total'            => $total,
+            'inStorage'        => $inStore,
+            'released'         => $released,
+            'releasedThisWeek' => $relWeek,
+            'receivedThisWeek' => $recWeek,
+            'planLimit'        => [
+                'max'      => $maxTires !== null ? (int)$maxTires : null,
+                'current'  => $total,
+                'exceeded' => $maxTires !== null && $total >= (int)$maxTires,
+            ],
         ]);
     } catch (Exception $e) {
         http_response_code(500);
@@ -119,7 +142,7 @@ function tires_stats() {
     }
 }
 
-function tires_create($body) {
+function tires_create($body, $company_id) {
     $fullName       = trim($body['fullName'] ?? '');
     $phone          = $body['phone'] ?? '';
     $email          = $body['email'] ?? null;
@@ -144,19 +167,20 @@ function tires_create($body) {
     $pdo = get_pdo();
     $pdo->beginTransaction();
     try {
-        $customerId = find_or_create_customer($pdo, $fullName, $phone, $email);
-        $stmt = $pdo->prepare('INSERT INTO tire_entries (customer_id, license_plate, tire_width, tire_profile, tire_diameter, tire_year, location, date_in, status, date_out, next_tire_change, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $customerId = find_or_create_customer($pdo, $fullName, $phone, $email, $company_id);
+        $stmt = $pdo->prepare('INSERT INTO tire_entries (customer_id, license_plate, tire_width, tire_profile, tire_diameter, tire_year, location, date_in, status, date_out, next_tire_change, notes, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([
             $customerId, $licensePlate,
             (int)$tireWidth, (int)$tireProfile, (int)$tireDiameter,
             $tireYear ? (int)$tireYear : null,
             $location, $dateIn, $status, $dateOut, $nextTireChange, $notes,
+            $company_id,
         ]);
         $newId = $pdo->lastInsertId();
         $pdo->commit();
 
-        $row = $pdo->prepare(TIRE_SELECT . ' WHERE te.id = ?');
-        $row->execute([$newId]);
+        $row = $pdo->prepare(TIRE_SELECT . ' WHERE te.id = ? AND te.company_id = ?');
+        $row->execute([$newId, $company_id]);
         http_response_code(201);
         echo json_encode(format_tire($row->fetch()));
     } catch (Exception $e) {
@@ -166,10 +190,10 @@ function tires_create($body) {
     }
 }
 
-function tires_update($id, $body) {
+function tires_update($id, $body, $company_id) {
     $pdo    = get_pdo();
-    $exists = $pdo->prepare('SELECT customer_id FROM tire_entries WHERE id = ?');
-    $exists->execute([$id]);
+    $exists = $pdo->prepare('SELECT customer_id FROM tire_entries WHERE id = ? AND company_id = ?');
+    $exists->execute([$id, $company_id]);
     $entry = $exists->fetch();
     if (!$entry) {
         http_response_code(404);
@@ -185,17 +209,17 @@ function tires_update($id, $body) {
         }
 
         $map = [
-            'licensePlate'   => ['license_plate',    'str'],
-            'tireWidth'      => ['tire_width',        'int'],
-            'tireProfile'    => ['tire_profile',      'int'],
-            'tireDiameter'   => ['tire_diameter',     'int'],
-            'tireYear'       => ['tire_year',         'int_null'],
-            'location'       => ['location',          'str'],
-            'dateIn'         => ['date_in',           'str'],
-            'status'         => ['status',            'str'],
-            'dateOut'        => ['date_out',          'null_str'],
-            'nextTireChange' => ['next_tire_change',  'null_str'],
-            'notes'          => ['notes',             'null_str'],
+            'licensePlate'   => ['license_plate',   'str'],
+            'tireWidth'      => ['tire_width',       'int'],
+            'tireProfile'    => ['tire_profile',     'int'],
+            'tireDiameter'   => ['tire_diameter',    'int'],
+            'tireYear'       => ['tire_year',        'int_null'],
+            'location'       => ['location',         'str'],
+            'dateIn'         => ['date_in',          'str'],
+            'status'         => ['status',           'str'],
+            'dateOut'        => ['date_out',         'null_str'],
+            'nextTireChange' => ['next_tire_change', 'null_str'],
+            'notes'          => ['notes',            'null_str'],
         ];
 
         $fields = [];
@@ -215,12 +239,13 @@ function tires_update($id, $body) {
 
         if ($fields) {
             $vals[] = $id;
-            $pdo->prepare('UPDATE tire_entries SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($vals);
+            $vals[] = $company_id;
+            $pdo->prepare('UPDATE tire_entries SET ' . implode(', ', $fields) . ' WHERE id = ? AND company_id = ?')->execute($vals);
         }
 
         $pdo->commit();
-        $row = $pdo->prepare(TIRE_SELECT . ' WHERE te.id = ?');
-        $row->execute([$id]);
+        $row = $pdo->prepare(TIRE_SELECT . ' WHERE te.id = ? AND te.company_id = ?');
+        $row->execute([$id, $company_id]);
         echo json_encode(format_tire($row->fetch()));
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -229,15 +254,15 @@ function tires_update($id, $body) {
     }
 }
 
-function tires_delete($id) {
+function tires_delete($id, $company_id) {
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('SELECT id FROM tire_entries WHERE id = ?');
-    $stmt->execute([$id]);
+    $stmt = $pdo->prepare('SELECT id FROM tire_entries WHERE id = ? AND company_id = ?');
+    $stmt->execute([$id, $company_id]);
     if (!$stmt->fetch()) {
         http_response_code(404);
         echo json_encode(['message' => 'Wpis nie istnieje.']);
         return;
     }
-    $pdo->prepare('DELETE FROM tire_entries WHERE id = ?')->execute([$id]);
+    $pdo->prepare('DELETE FROM tire_entries WHERE id = ? AND company_id = ?')->execute([$id, $company_id]);
     echo json_encode(['success' => true]);
 }

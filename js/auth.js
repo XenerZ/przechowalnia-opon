@@ -15,10 +15,14 @@ var Auth = (function () {
     return user && Array.isArray(user.permissions) && user.permissions.indexOf(perm) !== -1;
   }
 
+  function hasFeature(user, feature) {
+    return user && Array.isArray(user.features) && user.features.indexOf(feature) !== -1;
+  }
+
   function logout() {
     API.removeToken(); API.removeUser();
     window.location.href = 'login.html';
   }
 
-  return { requireAuth: requireAuth, can: can, logout: logout };
+  return { requireAuth: requireAuth, can: can, hasFeature: hasFeature, logout: logout };
 })();

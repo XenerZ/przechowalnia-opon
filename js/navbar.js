@@ -20,7 +20,9 @@ var Navbar = (function () {
     var user  = API.getUser();
     var file  = currentFile();
     var theme = localStorage.getItem('po_theme') || 'light';
-    var initial = user ? user.username.charAt(0).toUpperCase() : '?';
+    var initial  = user ? user.username.charAt(0).toUpperCase() : '?';
+    var planId   = user && user.plan_id ? user.plan_id : '';
+    var planBadge = planId ? '<span class="navbar-plan-badge navbar-plan-badge--' + planId + '">' + planId.toUpperCase() + '</span>' : '';
 
     var allLinks = LINKS.slice();
     if (user && Auth.can(user, 'manage_users')) allLinks = allLinks.concat(ADMIN_LINKS);
@@ -66,7 +68,7 @@ var Navbar = (function () {
           '</button>' +
           '<div class="user-dropdown" id="navMenu" style="display:none">' +
             '<div class="user-dropdown-header">' +
-              '<div class="user-dropdown-name">' + (user ? user.username : '') + '</div>' +
+              '<div class="user-dropdown-name">' + (user ? user.username : '') + ' ' + planBadge + '</div>' +
               '<div class="user-dropdown-role">' + (user ? user.role : '') + '</div>' +
             '</div>' +
             '<div class="user-dropdown-divider"></div>' +
@@ -96,7 +98,7 @@ var Navbar = (function () {
       // Panel użytkownika
       '<div class="navbar-mobile-panel" id="navMobileUserPanel">' +
         '<div class="navbar-mobile-user-info">' +
-          '<div class="navbar-mobile-username">' + (user ? user.username : '') + '</div>' +
+          '<div class="navbar-mobile-username">' + (user ? user.username : '') + ' ' + planBadge + '</div>' +
           '<div class="navbar-mobile-role">' + (user ? user.role : '') + '</div>' +
         '</div>' +
         '<div class="navbar-mobile-divider"></div>' +

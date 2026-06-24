@@ -13,8 +13,6 @@ function method_not_allowed() {
     echo json_encode(['message' => 'Metoda niedozwolona.']);
 }
 
-// REDIRECT_URL = oryginalna ścieżka przed rewrite'm Apache (OVH)
-// REQUEST_URI  = fallback gdy brak rewrite'u (lokalne dev)
 $uri    = parse_url($_SERVER['REDIRECT_URL'] ?? $_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $path   = preg_replace('#^/?api/?#', '', $uri);
 $path   = trim($path, '/');
@@ -31,6 +29,18 @@ switch ($resource) {
     case 'auth':
         require_once __DIR__ . '/routes/auth.php';
         handle_auth($method, $id, $body);
+        break;
+    case 'plans':
+        require_once __DIR__ . '/routes/plans.php';
+        handle_plans($method, $id, $body);
+        break;
+    case 'companies':
+        require_once __DIR__ . '/routes/companies.php';
+        handle_companies($method, $id, $sub, $body);
+        break;
+    case 'pools':
+        require_once __DIR__ . '/routes/pools.php';
+        handle_pools($method, $id, $sub, $body);
         break;
     case 'users':
         require_once __DIR__ . '/routes/users.php';

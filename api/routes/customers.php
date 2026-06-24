@@ -2,13 +2,19 @@
 require_once __DIR__ . '/../helpers/auth.php';
 
 function handle_customers($method, $id, $body) {
-    require_auth();
+    $user = require_auth();
+    require_feature($user, 'customers');
 
     if ($method !== 'GET') { method_not_allowed(); return; }
 
-    $pdo       = get_pdo();
-    $customers = $pdo->query('SELECT id, full_name AS fullName, phone FROM customers ORDER BY full_name')->fetchAll();
-    $entries   = $pdo->query('
+    $company_id = $user['company_id'];
+    $pdo        = get_pdo();
+
+    $stmt = $pdo->prepare('SELECT id, full_name AS fullName, phone FROM customers WHERE company_id = ? ORDER BY full_name');
+    $stmt->execute([$company_id]);
+    $customers = $stmt->fetchAll();
+
+    $stmt = $pdo->prepare('
         SELECT
             te.customer_id  AS customerId,
             te.id,
@@ -23,8 +29,11 @@ function handle_customers($method, $id, $body) {
             te.date_out      AS dateOut,
             te.notes
         FROM tire_entries te
+        WHERE te.company_id = ?
         ORDER BY te.date_in DESC
-    ')->fetchAll();
+    ');
+    $stmt->execute([$company_id]);
+    $entries = $stmt->fetchAll();
 
     $result = array_map(function ($c) use ($entries) {
         $c['phone']   = $c['phone'] ?? '';
