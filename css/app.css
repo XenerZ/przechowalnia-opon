@@ -1385,6 +1385,63 @@ code {
 .navbar-mobile-account-btn:hover,
 .navbar-mobile-account-btn.open { background: #2d5a9e; border-color: #4a9eff; color: #fff; }
 
+/* ===== PRZYCISK POMOCY / ZGŁOSZEŃ ===== */
+.navbar-help-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #1e3d6a;
+    border: 1.5px solid #2d5a9e;
+    color: #c8d8ee;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+    position: relative;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.navbar-help-btn:hover,
+.navbar-help-btn.active {
+    background: #2d5a9e;
+    border-color: #4a9eff;
+    color: #fff;
+}
+.navbar-help-btn[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0d1f3c;
+    color: #e6eefb;
+    font-size: 0.72rem;
+    font-weight: 500;
+    white-space: nowrap;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #2d5a9e;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+    z-index: 100;
+}
+.navbar-help-btn[data-tooltip]:hover::after {
+    opacity: 1;
+}
+.navbar-help-btn--mobile {
+    width: 34px;
+    height: 34px;
+    margin-right: 0;
+    font-size: 1.05rem;
+}
+
 /* ===== MOBILE PANELS ===== */
 .navbar-mobile-panel {
     display: none;
@@ -1452,6 +1509,9 @@ code {
         display: none !important;
     }
     .navbar-user {
+        display: none !important;
+    }
+    .navbar-help-btn:not(.navbar-help-btn--mobile) {
         display: none !important;
     }
     .navbar-mobile-controls {

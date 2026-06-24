@@ -65,9 +65,10 @@
   </style>
 </head>
 <body>
-<div id="navbarMount"></div>
-<div class="page-wrapper">
-  <div class="content-area">
+<div class="app-layout">
+  <div id="navbar-container"></div>
+  <main class="app-main">
+    <div class="page">
 
     <!-- Lista ticketów -->
     <div id="listView">
@@ -104,7 +105,8 @@
       </div>
     </div>
 
-  </div>
+    </div>
+  </main>
 </div>
 
 <!-- Modal: Nowe zgłoszenie -->
@@ -143,8 +145,8 @@
 <script src="js/navbar.js?v=2"></script>
 <script>
 (function(){ var t=localStorage.getItem('po_theme')||'light'; document.documentElement.setAttribute('data-theme',t); })();
-var user = Auth.requireAuth();
-Navbar.render(user);
+var user = Auth.requireAuth(); if (!user) throw 0;
+Navbar.render();
 
 var currentTicketId = null;
 

@@ -61,7 +61,9 @@ var Navbar = (function () {
 
         '<div class="navbar-links">' + linksHtml + '</div>' +
 
-        '<div class="navbar-user" style="position:relative;margin-left:auto">' +
+        '<a href="tickets.html" class="navbar-help-btn' + (file === 'tickets.html' ? ' active' : '') + '" data-tooltip="Pomoc i zgłoszenia" aria-label="Pomoc i zgłoszenia" style="margin-left:auto">?</a>' +
+
+        '<div class="navbar-user" style="position:relative">' +
           '<button class="user-menu-btn" id="navBtn">' +
             '<span class="user-menu-name">' + (user ? user.username : '') + '</span> ' +
             '<span class="user-menu-chevron">▼</span>' +
@@ -83,6 +85,7 @@ var Navbar = (function () {
         '</div>' +
 
         '<div class="navbar-mobile-controls">' +
+          '<a href="tickets.html" class="navbar-help-btn navbar-help-btn--mobile' + (file === 'tickets.html' ? ' active' : '') + '" aria-label="Pomoc i zgłoszenia">?</a>' +
           '<button class="navbar-mobile-account-btn" id="navMobileAccountBtn" aria-label="Konto" aria-expanded="false">' + initial + '</button>' +
           '<button class="navbar-hamburger" id="navHamburger" aria-label="Menu" aria-expanded="false">' +
             '<span></span><span></span><span></span>' +
