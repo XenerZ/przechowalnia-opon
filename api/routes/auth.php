@@ -134,9 +134,9 @@ function auth_register($body) {
     $username = trim($userData['username'] ?? '');
     $password = $userData['password'] ?? '';
 
-    if (!$companyName || !$companyEmail || !$username || !$password) {
+    if (!$companyName || !$companyNip || !$phone || !$address || !$city || !$postalCode || !$companyEmail || !$username || !$password) {
         http_response_code(400);
-        echo json_encode(['message' => 'Brakuje wymaganych pól (nazwa firmy, e-mail, login, hasło).']);
+        echo json_encode(['message' => 'Wszystkie pola są wymagane.']);
         return;
     }
 
