@@ -87,9 +87,8 @@
 
     <!-- Widok ticketu -->
     <div id="ticketView">
-      <div style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <div style="margin-bottom:1rem">
         <button class="btn btn-outline" onclick="showList()">← Powrót</button>
-        <button class="btn btn-outline" id="closeTicketBtn" onclick="closeTicket()" style="display:none">Zamknij zgłoszenie</button>
       </div>
       <div id="ticketDetailHeader" class="ticket-detail-header"></div>
       <div class="card" style="padding:1.25rem;margin-bottom:1rem">
@@ -98,7 +97,10 @@
           <div class="form-group" style="margin-top:.5rem">
             <textarea id="replyInput" class="form-control" rows="3" placeholder="Napisz odpowiedź…" style="resize:vertical"></textarea>
           </div>
-          <button class="btn btn-primary" onclick="submitReply()">Wyślij odpowiedź</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="submitReply()">Wyślij odpowiedź</button>
+            <button class="btn" id="closeTicketBtn" onclick="closeTicket()" style="background:#dc2626;color:#fff;border-color:#dc2626">Zamknij zgłoszenie</button>
+          </div>
         </div>
         <div id="closedNote" style="display:none;color:var(--text-muted);font-size:.85rem;margin-top:.5rem">
           Zgłoszenie zostało zamknięte. Aby ponownie się skontaktować, utwórz nowe zgłoszenie.
