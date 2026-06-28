@@ -1,102 +1,35 @@
 -- ============================================================
--- MIGRACJA PRODUKCYJNA — pełny schemat (multi-tenancy + tickety + support)
+-- KONTYNUACJA migracji produkcyjnej (po częściowym imporcie)
 --
--- Przeznaczenie: baza w ORYGINALNYM, starym schemacie (przed jakąkolwiek
--- naszą migracją). Konsoliduje migration_v2 + migration_v3 + zmiany z panelu
--- supportu, z poprawkami (brak FK na ticket_messages.author_id oraz
--- impersonation_tokens.created_by — wskazują na support_users, nie users).
+-- Stan wyjściowy (potwierdzony):
+--   plans, companies (+ firma domyślna) — istnieją
+--   users: ma uuid (NOT NULL), company_id (NOT NULL), status, rola rozszerzona; PK wciąż INT
+--   user_permissions: ma user_uuid (NOT NULL); user_id (INT) jeszcze istnieje
+--   pozostałe kroki (company_id w danych, settings, pools, tickety, support) — NIE wykonane
 --
--- !!! URUCHOM JEDNORAZOWO, PO WYKONANIU PEŁNEJ KOPII ZAPASOWEJ BAZY !!!
--- Zakłada istnienie tabel: users, user_permissions, tire_entries, customers,
--- templates, email_templates, actions, settings. Jeśli któraś nie istnieje,
--- zakomentuj odpowiadające jej linie.
+-- !!! BACKUP przed uruchomieniem !!!
 -- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ════════════════════ CZĘŚĆ A — MULTI-TENANCY ════════════════════
-
--- 1. Plany
-CREATE TABLE IF NOT EXISTS plans (
-    id            VARCHAR(50)   PRIMARY KEY,
-    name          VARCHAR(100)  NOT NULL,
-    max_tires     INT           DEFAULT 5,
-    has_customers TINYINT(1)    DEFAULT 0,
-    has_actions   TINYINT(1)    DEFAULT 0,
-    price_monthly DECIMAL(10,2) DEFAULT 0.00,
-    is_active     TINYINT(1)    DEFAULT 1,
-    sort_order    INT           DEFAULT 0
-);
-INSERT INTO plans (id, name, max_tires, has_customers, has_actions, price_monthly, sort_order) VALUES
-('free', 'Free', 5,    0, 0, 0.00, 1),
-('mid',  'Mid',  15,   1, 0, 0.00, 2),
-('max',  'Max',  NULL, 1, 1, 0.00, 3)
-ON DUPLICATE KEY UPDATE
-    name=VALUES(name), max_tires=VALUES(max_tires),
-    has_customers=VALUES(has_customers), has_actions=VALUES(has_actions);
-
--- 2. Firmy (od razu z polami rozliczeń)
-CREATE TABLE IF NOT EXISTS companies (
-    id              CHAR(36)      NOT NULL,
-    name            VARCHAR(255)  NOT NULL,
-    nip             VARCHAR(20)   DEFAULT NULL,
-    address         VARCHAR(255)  DEFAULT NULL,
-    city            VARCHAR(100)  DEFAULT NULL,
-    postal_code     VARCHAR(10)   DEFAULT NULL,
-    phone           VARCHAR(50)   DEFAULT NULL,
-    email           VARCHAR(255)  NOT NULL,
-    plan_id         VARCHAR(50)   NOT NULL DEFAULT 'max',
-    trial_ends_at   DATETIME      DEFAULT NULL,
-    status          ENUM('pending','active','suspended') DEFAULT 'active',
-    notes           TEXT          DEFAULT NULL,
-    billing_date    DATE          DEFAULT NULL,
-    next_billing_at DATE          DEFAULT NULL,
-    created_at      DATETIME      DEFAULT NOW(),
-    PRIMARY KEY (id)
-);
-
--- 3. Domyślna firma (stały UUID) — pod nią trafiają istniejące dane
-INSERT IGNORE INTO companies (id, name, email, plan_id, status)
-VALUES (
-    'aaaaaaaa-0000-4000-8000-000000000001',
-    'Firma domyslna',
-    COALESCE((SELECT email FROM users ORDER BY id LIMIT 1), 'admin@firma.pl'),
-    'max', 'active'
-);
-
--- 4. users — rozszerz rolę i dodaj kolumny
-ALTER TABLE users MODIFY COLUMN role ENUM('pracownik','admin','super_admin') NOT NULL DEFAULT 'pracownik';
-ALTER TABLE users
-    ADD COLUMN uuid       CHAR(36) NULL,
-    ADD COLUMN company_id CHAR(36) NULL,
-    ADD COLUMN status     ENUM('active','inactive','suspended') DEFAULT 'active';
-UPDATE users SET uuid = UUID() WHERE uuid IS NULL;
-UPDATE users SET company_id = 'aaaaaaaa-0000-4000-8000-000000000001' WHERE company_id IS NULL;
-ALTER TABLE users
-    MODIFY COLUMN uuid       CHAR(36) NOT NULL,
-    MODIFY COLUMN company_id CHAR(36) NOT NULL;
-ALTER TABLE users ADD UNIQUE KEY uk_users_uuid (uuid);
-
--- 5. user_permissions: INT → UUID (najpierw zdejmij FK na user_id)
-ALTER TABLE user_permissions ADD COLUMN user_uuid CHAR(36) NULL;
-UPDATE user_permissions up JOIN users u ON u.id = up.user_id SET up.user_uuid = u.uuid;
-ALTER TABLE user_permissions MODIFY COLUMN user_uuid CHAR(36) NOT NULL;
+-- ── Dokończenie user_permissions: zdejmij FK, usuń stary user_id, przemianuj ──
 ALTER TABLE user_permissions DROP FOREIGN KEY user_permissions_ibfk_1;
 ALTER TABLE user_permissions DROP COLUMN user_id;
 ALTER TABLE user_permissions CHANGE COLUMN user_uuid user_id CHAR(36) NOT NULL;
 
--- 6. users — zmiana PK z INT na UUID (najpierw zdejmij AUTO_INCREMENT)
+-- ── users: PK INT → UUID (zdejmij AUTO_INCREMENT, potem PK) ──
 ALTER TABLE users MODIFY COLUMN id INT UNSIGNED NOT NULL;
 ALTER TABLE users DROP PRIMARY KEY;
 ALTER TABLE users DROP COLUMN id;
 ALTER TABLE users CHANGE COLUMN uuid id CHAR(36) NOT NULL;
 ALTER TABLE users ADD PRIMARY KEY (id);
+
 ALTER TABLE user_permissions
     ADD CONSTRAINT fk_up_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE users
     ADD CONSTRAINT fk_users_company FOREIGN KEY (company_id) REFERENCES companies(id);
 
--- 7. company_id w tabelach danych
+-- ── company_id w tabelach danych ──
 ALTER TABLE tire_entries    ADD COLUMN company_id CHAR(36) NULL;
 ALTER TABLE customers       ADD COLUMN company_id CHAR(36) NULL;
 ALTER TABLE templates       ADD COLUMN company_id CHAR(36) NULL;
@@ -113,13 +46,13 @@ ALTER TABLE templates       MODIFY COLUMN company_id CHAR(36) NOT NULL;
 ALTER TABLE email_templates MODIFY COLUMN company_id CHAR(36) NOT NULL;
 ALTER TABLE actions         MODIFY COLUMN company_id CHAR(36) NOT NULL;
 
--- 8. settings — scoping per firma (PK złożony)
+-- ── settings — scoping per firma (PK złożony) ──
 ALTER TABLE settings ADD COLUMN company_id CHAR(36) NOT NULL DEFAULT '';
 UPDATE settings SET company_id='aaaaaaaa-0000-4000-8000-000000000001' WHERE company_id='';
 ALTER TABLE settings DROP PRIMARY KEY;
 ALTER TABLE settings ADD PRIMARY KEY (company_id, `key`);
 
--- 9. Pools
+-- ── Pools ──
 CREATE TABLE IF NOT EXISTS pools (
     id          INT          AUTO_INCREMENT PRIMARY KEY,
     name        VARCHAR(100) NOT NULL,
@@ -141,7 +74,7 @@ CREATE TABLE IF NOT EXISTS pool_members (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 10. Tokeny rejestracji
+-- ── Tokeny rejestracji ──
 CREATE TABLE IF NOT EXISTS registration_tokens (
     token      CHAR(64)   NOT NULL PRIMARY KEY,
     company_id CHAR(36)   NOT NULL,
@@ -152,9 +85,7 @@ CREATE TABLE IF NOT EXISTS registration_tokens (
     FOREIGN KEY (user_id)    REFERENCES users(id)     ON DELETE CASCADE
 );
 
--- ════════════════════ CZĘŚĆ B — TICKETY / SUPPORT ════════════════════
-
--- 11. Konta supportu (osobne od users; potrzebne m.in. do JOINu odpowiedzi supportu)
+-- ── Konta supportu (osobne; potrzebne do JOINu odpowiedzi supportu) ──
 CREATE TABLE IF NOT EXISTS support_users (
     id         CHAR(36)     NOT NULL PRIMARY KEY,
     username   VARCHAR(100) NOT NULL,
@@ -168,7 +99,7 @@ CREATE TABLE IF NOT EXISTS support_users (
     UNIQUE KEY uk_support_email    (email)
 );
 
--- 12. Tickety (z czasem pracy i ostatnim agentem)
+-- ── Tickety ──
 CREATE TABLE IF NOT EXISTS tickets (
     id            INT          AUTO_INCREMENT PRIMARY KEY,
     company_id    CHAR(36)     NOT NULL,
@@ -183,8 +114,6 @@ CREATE TABLE IF NOT EXISTS tickets (
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id)    REFERENCES users(id)     ON DELETE CASCADE
 );
-
--- 13. Wiadomości ticketów (author_id wskazuje users LUB support_users — bez FK na author_id)
 CREATE TABLE IF NOT EXISTS ticket_messages (
     id         INT        AUTO_INCREMENT PRIMARY KEY,
     ticket_id  INT        NOT NULL,
@@ -194,8 +123,6 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     created_at DATETIME   DEFAULT NOW(),
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 );
-
--- 14. Tokeny impersonacji (created_by = support_users — bez FK na created_by)
 CREATE TABLE IF NOT EXISTS impersonation_tokens (
     token          CHAR(64)   NOT NULL PRIMARY KEY,
     target_user_id CHAR(36)   NOT NULL,
@@ -205,8 +132,6 @@ CREATE TABLE IF NOT EXISTS impersonation_tokens (
     expires_at     DATETIME   NOT NULL,
     FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-
--- 15. Obecność na tickecie (kto aktualnie pracuje)
 CREATE TABLE IF NOT EXISTS ticket_presence (
     ticket_id  INT      NOT NULL,
     agent_id   CHAR(36) NOT NULL,
@@ -219,9 +144,8 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================
 -- WERYFIKACJA:
---   SELECT id, name, status FROM companies;
 --   SELECT id, username, company_id, status, role FROM users;
---   SHOW TABLES LIKE 'ticket%';
---   SHOW TABLES LIKE 'pool%';
---   DESCRIBE tire_entries;   -- czy jest company_id NOT NULL
+--   SHOW COLUMNS FROM user_permissions;     -- user_id = CHAR(36), brak user_uuid
+--   SHOW COLUMNS FROM tire_entries;         -- company_id NOT NULL
+--   SHOW TABLES LIKE 'ticket%';  SHOW TABLES LIKE 'pool%';
 -- ============================================================
