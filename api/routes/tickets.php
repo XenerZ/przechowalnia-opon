@@ -56,9 +56,14 @@ function handle_tickets($method, $id, $sub, $body) {
     if (!$ticket) { http_response_code(404); echo json_encode(['message' => 'Ticket nie znaleziony.']); return; }
 
     if (!$sub && $method === 'GET') {
+        // LEFT JOIN — wiadomości supportu mają author_id z tabeli support_users,
+        // więc INNER JOIN users gubiłby odpowiedzi supportera
         $mStmt = $pdo->prepare('
-            SELECT tm.*, u.username AS author_username
-            FROM ticket_messages tm JOIN users u ON tm.author_id = u.id
+            SELECT tm.id, tm.ticket_id, tm.is_support, tm.message, tm.created_at,
+                   CASE WHEN tm.is_support=1 THEN su.username ELSE u.username END AS author_username
+            FROM ticket_messages tm
+            LEFT JOIN users u          ON tm.is_support=0 AND tm.author_id = u.id
+            LEFT JOIN support_users su ON tm.is_support=1 AND tm.author_id = su.id
             WHERE tm.ticket_id = ?
             ORDER BY tm.created_at ASC
         ');
@@ -69,14 +74,23 @@ function handle_tickets($method, $id, $sub, $body) {
     }
 
     if ($sub === 'reply' && $method === 'POST') {
-        if (in_array($ticket['status'], ['resolved','closed'])) {
-            $pdo->prepare("UPDATE tickets SET status='open' WHERE id=?")->execute([$id]);
+        if ($ticket['status'] === 'closed') {
+            http_response_code(403);
+            echo json_encode(['message' => 'Zgłoszenie jest zamknięte — nie można dodać odpowiedzi.']);
+            return;
         }
         $message = trim($body['message'] ?? '');
         if (!$message) { http_response_code(400); echo json_encode(['message' => 'Wiadomość nie może być pusta.']); return; }
         $pdo->prepare('INSERT INTO ticket_messages (ticket_id, author_id, is_support, message) VALUES (?,?,0,?)')
             ->execute([$id, $user['id'], $message]);
+        // odpowiedź klienta ponownie otwiera rozwiązane zgłoszenie
         $pdo->prepare("UPDATE tickets SET status='open' WHERE id=?")->execute([$id]);
+        echo json_encode(['success' => true]);
+        return;
+    }
+
+    if ($sub === 'close' && $method === 'POST') {
+        $pdo->prepare("UPDATE tickets SET status='closed' WHERE id=?")->execute([$id]);
         echo json_encode(['success' => true]);
         return;
     }

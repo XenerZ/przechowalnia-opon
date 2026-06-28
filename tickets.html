@@ -87,8 +87,9 @@
 
     <!-- Widok ticketu -->
     <div id="ticketView">
-      <div style="margin-bottom:1rem">
+      <div style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
         <button class="btn btn-outline" onclick="showList()">← Powrót</button>
+        <button class="btn btn-outline" id="closeTicketBtn" onclick="closeTicket()" style="display:none">Zamknij zgłoszenie</button>
       </div>
       <div id="ticketDetailHeader" class="ticket-detail-header"></div>
       <div class="card" style="padding:1.25rem;margin-bottom:1rem">
@@ -100,7 +101,7 @@
           <button class="btn btn-primary" onclick="submitReply()">Wyślij odpowiedź</button>
         </div>
         <div id="closedNote" style="display:none;color:var(--text-muted);font-size:.85rem;margin-top:.5rem">
-          Ticket jest zamknięty. Wyślij wiadomość, aby go ponownie otworzyć.
+          Zgłoszenie zostało zamknięte. Aby ponownie się skontaktować, utwórz nowe zgłoszenie.
         </div>
       </div>
     </div>
@@ -166,12 +167,13 @@ function renderList(tickets) {
     return;
   }
   el.innerHTML = tickets.map(function(t) {
-    var statusLabel = {open:'Otwarte',in_progress:'W trakcie',resolved:'Rozwiązane',closed:'Zamknięte'}[t.status] || t.status;
     var date = t.updated_at ? new Date(t.updated_at).toLocaleDateString('pl-PL') : '';
+    var closed = t.status === 'closed'
+      ? '<span class="status-badge status-closed">Zamknięte</span>' : '';
     return '<div class="ticket-row" onclick="openTicket(' + t.id + ')">' +
-      '<div class="ticket-row-subject">#' + t.id + ' ' + esc(t.subject) + '</div>' +
+      '<div class="ticket-row-subject">#' + ticketRef(t.id) + ' ' + esc(t.subject) + '</div>' +
       '<span class="priority-badge priority-' + t.priority + '">' + priorityLabel(t.priority) + '</span>' +
-      '<span class="status-badge status-' + t.status + '">' + esc(statusLabel) + '</span>' +
+      closed +
       '<span class="ticket-row-meta">' + date + ' · ' + (t.message_count || 0) + ' wiad.</span>' +
     '</div>';
   }).join('');
@@ -191,17 +193,18 @@ async function openTicket(id) {
 }
 
 function renderTicket(ticket) {
-  var statusLabel = {open:'Otwarte',in_progress:'W trakcie',resolved:'Rozwiązane',closed:'Zamknięte'}[ticket.status] || ticket.status;
+  var isClosed = ticket.status === 'closed';
+  var closedBadge = isClosed ? '<span class="status-badge status-closed">Zamknięte</span>' : '';
   document.getElementById('ticketDetailHeader').innerHTML =
-    '<div class="ticket-detail-subject">#' + ticket.id + ' ' + esc(ticket.subject) + '</div>' +
+    '<div class="ticket-detail-subject">#' + ticketRef(ticket.id) + ' ' + esc(ticket.subject) + '</div>' +
     '<span class="priority-badge priority-' + ticket.priority + '">' + priorityLabel(ticket.priority) + '</span>' +
-    '<span class="status-badge status-' + ticket.status + '">' + esc(statusLabel) + '</span>';
+    closedBadge;
 
   var msgs = ticket.messages || [];
   document.getElementById('ticketThread').innerHTML = msgs.length
     ? msgs.map(function(m) {
-        var cls = m.is_support ? 'support' : 'user';
-        var who = m.is_support ? 'Support' : esc(m.author_username);
+        var cls = m.is_support == 1 ? 'support' : 'user';
+        var who = m.is_support == 1 ? 'Support' : esc(m.author_username);
         var date = new Date(m.created_at).toLocaleString('pl-PL');
         return '<div class="msg-' + cls + '-wrap">' +
           '<div class="msg-bubble msg-bubble--' + cls + '">' + esc(m.message) + '</div>' +
@@ -210,9 +213,24 @@ function renderTicket(ticket) {
       }).join('')
     : '<div style="color:var(--text-muted);font-size:.85rem">Brak wiadomości.</div>';
 
-  var isClosed = ticket.status === 'closed';
-  document.getElementById('closedNote').style.display = isClosed ? 'block' : 'none';
+  // zamknięte: brak możliwości odpowiedzi i przycisku zamykania
+  document.getElementById('replySection').style.display  = isClosed ? 'none' : 'block';
+  document.getElementById('closedNote').style.display    = isClosed ? 'block' : 'none';
+  document.getElementById('closeTicketBtn').style.display = isClosed ? 'none' : 'inline-flex';
 }
+
+async function closeTicket() {
+  if (!confirm('Zamknąć zgłoszenie? Nie będzie można dodać kolejnych odpowiedzi.')) return;
+  try {
+    await API.post('/tickets/' + currentTicketId + '/close', {});
+    openTicket(currentTicketId);
+  } catch(e) {
+    alert(e.message || 'Nie udało się zamknąć zgłoszenia.');
+  }
+}
+
+// numeracja „hashowa" — spójna z panelem supportu
+function ticketRef(id){ return ((Number(id) * 2654435761) >>> 0).toString(36).toUpperCase(); }
 
 function showList() {
   currentTicketId = null;
