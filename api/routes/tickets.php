@@ -7,10 +7,15 @@ function handle_tickets($method, $id, $sub, $body) {
 
     if (!$id) {
         if ($method === 'GET') {
+            // komentarze wewnętrzne (is_internal=1) są niewidoczne dla klienta —
+            // wykluczone z licznika, daty i znacznika ostatniej odpowiedzi
             $stmt = $pdo->prepare('
                 SELECT t.*,
-                       (SELECT COUNT(*) FROM ticket_messages WHERE ticket_id = t.id) AS message_count,
-                       (SELECT MAX(created_at) FROM ticket_messages WHERE ticket_id = t.id) AS last_message_at
+                       (SELECT COUNT(*)        FROM ticket_messages WHERE ticket_id = t.id AND is_internal = 0) AS message_count,
+                       (SELECT MAX(created_at) FROM ticket_messages WHERE ticket_id = t.id AND is_internal = 0) AS last_message_at,
+                       (SELECT m.is_support FROM ticket_messages m
+                          WHERE m.ticket_id = t.id AND m.is_internal = 0
+                          ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_is_support
                 FROM tickets t
                 WHERE t.company_id = ?
                 ORDER BY t.updated_at DESC
@@ -64,7 +69,7 @@ function handle_tickets($method, $id, $sub, $body) {
             FROM ticket_messages tm
             LEFT JOIN users u          ON tm.is_support=0 AND tm.author_id = u.id
             LEFT JOIN support_users su ON tm.is_support=1 AND tm.author_id = su.id
-            WHERE tm.ticket_id = ?
+            WHERE tm.ticket_id = ? AND tm.is_internal = 0
             ORDER BY tm.created_at ASC
         ');
         $mStmt->execute([$id]);
@@ -74,7 +79,7 @@ function handle_tickets($method, $id, $sub, $body) {
     }
 
     if ($sub === 'reply' && $method === 'POST') {
-        if ($ticket['status'] === 'closed') {
+        if ((int)$ticket['is_closed'] === 1) {
             http_response_code(403);
             echo json_encode(['message' => 'Zgłoszenie jest zamknięte — nie można dodać odpowiedzi.']);
             return;
@@ -83,14 +88,15 @@ function handle_tickets($method, $id, $sub, $body) {
         if (!$message) { http_response_code(400); echo json_encode(['message' => 'Wiadomość nie może być pusta.']); return; }
         $pdo->prepare('INSERT INTO ticket_messages (ticket_id, author_id, is_support, message) VALUES (?,?,0,?)')
             ->execute([$id, $user['id'], $message]);
-        // odpowiedź klienta ponownie otwiera rozwiązane zgłoszenie
-        $pdo->prepare("UPDATE tickets SET status='open' WHERE id=?")->execute([$id]);
+        // odpowiedź klienta przywraca ticket na listę aktywnych supportu (etykieta statusu bez zmian)
+        $pdo->prepare("UPDATE tickets SET is_active=1 WHERE id=?")->execute([$id]);
         echo json_encode(['success' => true]);
         return;
     }
 
     if ($sub === 'close' && $method === 'POST') {
-        $pdo->prepare("UPDATE tickets SET status='closed' WHERE id=?")->execute([$id]);
+        // zamknięcie to osobny mechanizm — nie zmienia etykiety statusu
+        $pdo->prepare("UPDATE tickets SET is_closed=1, is_active=0 WHERE id=?")->execute([$id]);
         echo json_encode(['success' => true]);
         return;
     }

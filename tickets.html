@@ -60,6 +60,8 @@
     .status-in_progress { background:#fef9c3; color:#92400e; }
     .status-resolved    { background:#dcfce7; color:#166534; }
     .status-closed      { background:#f1f5f9; color:#475569; }
+    .status-reply       { background:#dcfce7; color:#166534; }
+    .ticket-row--reply  { border-color:#16a34a; box-shadow:inset 3px 0 0 #16a34a; }
     #ticketView { display:none; }
     .empty-state { text-align:center; padding:3rem 1rem; color:var(--text-muted); }
   </style>
@@ -170,10 +172,14 @@ function renderList(tickets) {
   }
   el.innerHTML = tickets.map(function(t) {
     var date = t.updated_at ? new Date(t.updated_at).toLocaleDateString('pl-PL') : '';
-    var closed = t.status === 'closed'
-      ? '<span class="status-badge status-closed">Zamknięte</span>' : '';
-    return '<div class="ticket-row" onclick="openTicket(' + t.id + ')">' +
+    var isClosed = t.is_closed == 1;
+    var closed = isClosed ? '<span class="status-badge status-closed">Zamknięte</span>' : '';
+    // ostatnia (niewewnętrzna) wiadomość od wsparcia → wyróżnij ticket na liście
+    var newReply = (!isClosed && t.last_is_support == 1)
+      ? '<span class="status-badge status-reply">Nowa odpowiedź</span>' : '';
+    return '<div class="ticket-row' + (newReply ? ' ticket-row--reply' : '') + '" onclick="openTicket(' + t.id + ')">' +
       '<div class="ticket-row-subject">#' + ticketRef(t.id) + ' ' + esc(t.subject) + '</div>' +
+      newReply +
       '<span class="priority-badge priority-' + t.priority + '">' + priorityLabel(t.priority) + '</span>' +
       closed +
       '<span class="ticket-row-meta">' + date + ' · ' + (t.message_count || 0) + ' wiad.</span>' +
@@ -195,7 +201,7 @@ async function openTicket(id) {
 }
 
 function renderTicket(ticket) {
-  var isClosed = ticket.status === 'closed';
+  var isClosed = ticket.is_closed == 1;
   var closedBadge = isClosed ? '<span class="status-badge status-closed">Zamknięte</span>' : '';
   document.getElementById('ticketDetailHeader').innerHTML =
     '<div class="ticket-detail-subject">#' + ticketRef(ticket.id) + ' ' + esc(ticket.subject) + '</div>' +
