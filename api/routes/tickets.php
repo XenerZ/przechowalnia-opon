@@ -8,17 +8,21 @@ function handle_tickets($method, $id, $sub, $body) {
     if (!$id) {
         if ($method === 'GET') {
             // komentarze wewnętrzne (is_internal=1) są niewidoczne dla klienta —
-            // wykluczone z licznika, daty i znacznika ostatniej odpowiedzi
+            // wykluczone z licznika i daty. has_unread_reply=1 gdy istnieje odpowiedź
+            // supportu nowsza niż ostatni odczyt klienta (client_read_at).
+            // Kolejność stała wg utworzenia — odpowiedź supportu nie przesuwa zgłoszeń.
             $stmt = $pdo->prepare('
                 SELECT t.*,
                        (SELECT COUNT(*)        FROM ticket_messages WHERE ticket_id = t.id AND is_internal = 0) AS message_count,
                        (SELECT MAX(created_at) FROM ticket_messages WHERE ticket_id = t.id AND is_internal = 0) AS last_message_at,
-                       (SELECT m.is_support FROM ticket_messages m
-                          WHERE m.ticket_id = t.id AND m.is_internal = 0
-                          ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_is_support
+                       (CASE WHEN EXISTS (
+                            SELECT 1 FROM ticket_messages m
+                            WHERE m.ticket_id = t.id AND m.is_internal = 0 AND m.is_support = 1
+                              AND (t.client_read_at IS NULL OR m.created_at > t.client_read_at)
+                        ) THEN 1 ELSE 0 END) AS has_unread_reply
                 FROM tickets t
                 WHERE t.company_id = ?
-                ORDER BY t.updated_at DESC
+                ORDER BY t.created_at DESC, t.id DESC
             ');
             $stmt->execute([$user['company_id']]);
             echo json_encode($stmt->fetchAll());
@@ -61,6 +65,9 @@ function handle_tickets($method, $id, $sub, $body) {
     if (!$ticket) { http_response_code(404); echo json_encode(['message' => 'Ticket nie znaleziony.']); return; }
 
     if (!$sub && $method === 'GET') {
+        // otwarcie zgłoszenia = odczyt: kasuje znacznik „nowej odpowiedzi".
+        // updated_at=updated_at blokuje auto-bump (kolejność supportu bez zmian).
+        $pdo->prepare('UPDATE tickets SET client_read_at = NOW(), updated_at = updated_at WHERE id = ?')->execute([$id]);
         // LEFT JOIN — wiadomości supportu mają author_id z tabeli support_users,
         // więc INNER JOIN users gubiłby odpowiedzi supportera
         $mStmt = $pdo->prepare('

@@ -174,8 +174,8 @@ function renderList(tickets) {
     var date = t.updated_at ? new Date(t.updated_at).toLocaleDateString('pl-PL') : '';
     var isClosed = t.is_closed == 1;
     var closed = isClosed ? '<span class="status-badge status-closed">Zamknięte</span>' : '';
-    // ostatnia (niewewnętrzna) wiadomość od wsparcia → wyróżnij ticket na liście
-    var newReply = (!isClosed && t.last_is_support == 1)
+    // nieprzeczytana odpowiedź wsparcia → wyróżnij ticket (znika po otwarciu/odczycie)
+    var newReply = (!isClosed && t.has_unread_reply == 1)
       ? '<span class="status-badge status-reply">Nowa odpowiedź</span>' : '';
     return '<div class="ticket-row' + (newReply ? ' ticket-row--reply' : '') + '" onclick="openTicket(' + t.id + ')">' +
       '<div class="ticket-row-subject">#' + ticketRef(t.id) + ' ' + esc(t.subject) + '</div>' +
