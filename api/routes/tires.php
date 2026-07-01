@@ -8,6 +8,8 @@ define('TIRE_SELECT', '
     c.phone,
     c.email,
     te.license_plate     AS licensePlate,
+    te.vehicle,
+    te.price,
     te.tire_width        AS tireWidth,
     te.tire_profile      AS tireProfile,
     te.tire_diameter     AS tireDiameter,
@@ -54,6 +56,8 @@ function format_tire($row) {
         'phone'          => $row['phone'] ?? '',
         'email'          => $row['email'] ?? '',
         'licensePlate'   => $row['licensePlate'],
+        'vehicle'        => $row['vehicle'] ?? '',
+        'price'          => isset($row['price']) && $row['price'] !== null ? (float)$row['price'] : null,
         'tireWidth'      => (int)$row['tireWidth'],
         'tireProfile'    => (int)$row['tireProfile'],
         'tireDiameter'   => (int)$row['tireDiameter'],
@@ -147,6 +151,9 @@ function tires_create($body, $company_id) {
     $phone          = $body['phone'] ?? '';
     $email          = $body['email'] ?? null;
     $licensePlate   = trim($body['licensePlate'] ?? '');
+    $vehicle        = trim($body['vehicle'] ?? '') ?: null;
+    $priceRaw       = $body['price'] ?? null;
+    $price          = ($priceRaw === '' || $priceRaw === null) ? null : (float)$priceRaw;
     $tireWidth      = $body['tireWidth']    ?? null;
     $tireProfile    = $body['tireProfile']  ?? null;
     $tireDiameter   = $body['tireDiameter'] ?? null;
@@ -168,9 +175,9 @@ function tires_create($body, $company_id) {
     $pdo->beginTransaction();
     try {
         $customerId = find_or_create_customer($pdo, $fullName, $phone, $email, $company_id);
-        $stmt = $pdo->prepare('INSERT INTO tire_entries (customer_id, license_plate, tire_width, tire_profile, tire_diameter, tire_year, location, date_in, status, date_out, next_tire_change, notes, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $stmt = $pdo->prepare('INSERT INTO tire_entries (customer_id, license_plate, vehicle, price, tire_width, tire_profile, tire_diameter, tire_year, location, date_in, status, date_out, next_tire_change, notes, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([
-            $customerId, $licensePlate,
+            $customerId, $licensePlate, $vehicle, $price,
             (int)$tireWidth, (int)$tireProfile, (int)$tireDiameter,
             $tireYear ? (int)$tireYear : null,
             $location, $dateIn, $status, $dateOut, $nextTireChange, $notes,
@@ -210,6 +217,8 @@ function tires_update($id, $body, $company_id) {
 
         $map = [
             'licensePlate'   => ['license_plate',   'str'],
+            'vehicle'        => ['vehicle',          'null_str'],
+            'price'          => ['price',            'price'],
             'tireWidth'      => ['tire_width',       'int'],
             'tireProfile'    => ['tire_profile',     'int'],
             'tireDiameter'   => ['tire_diameter',    'int'],
@@ -231,6 +240,7 @@ function tires_update($id, $body, $company_id) {
                 'int'      => (int)$val,
                 'int_null' => $val ? (int)$val : null,
                 'null_str' => $val ?: null,
+                'price'    => ($val === '' || $val === null) ? null : (float)$val,
                 default    => $val,
             };
             $fields[] = "$col = ?";

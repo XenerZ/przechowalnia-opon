@@ -120,6 +120,10 @@
             <span class="form-error" id="errPlate" style="display:none"></span>
           </div>
           <div class="form-group">
+            <label>Pojazd <span class="form-hint">marka, model</span></label>
+            <input id="fVehicle" placeholder="np. Audi A4">
+          </div>
+          <div class="form-group">
             <label>Lokalizacja *</label>
             <input id="fLoc" placeholder="np. A-3" oninput="this.value=this.value.toUpperCase()">
             <span class="form-error" id="errLoc" style="display:none"></span>
@@ -173,6 +177,10 @@
           <div class="form-group">
             <label>Przewid. zmiana opon</label>
             <input type="date" id="fNextChange">
+          </div>
+          <div class="form-group">
+            <label>Cena <span class="form-hint">zł</span></label>
+            <input type="number" id="fPrice" min="0" step="0.01" placeholder="np. 120">
           </div>
         </div>
 
@@ -454,6 +462,7 @@ function openPreview(t) {
     '<div class="preview-grid">' +
     prow('Klient', '<strong>' + t.fullName + '</strong>') + prow('Telefon', t.phone || '—') +
     prow('Nr rejestracyjny', '<span class="plate"><span class="plate-eu"><span class="plate-country">PL</span></span><span class="plate-text">' + t.licensePlate + '</span></span>') +
+    prow('Pojazd', t.vehicle || '—') + prow('Cena', fmtPrice(t.price)) +
     prow('Rozmiar opon', size) + prow('Lokalizacja', '<span class="location-badge">' + t.location + '</span>') +
     prow('Status', badge) + prow('Data przyjęcia', t.dateIn) + prow('Data wydania', t.dateOut || '—') +
     (t.notes ? '<div class="preview-notes" style="grid-column:1/-1">' + t.notes + '</div>' : '') +
@@ -469,12 +478,13 @@ function openPreview(t) {
   openModal('mPreview');
 }
 function prow(l, v) { return '<div class="preview-row"><span class="preview-label">'+l+'</span><span class="preview-value">'+(v||'—')+'</span></div>'; }
+function fmtPrice(p) { return (p != null && p !== '') ? (Number(p).toFixed(2).replace('.', ',') + ' zł') : '—'; }
 
 function openAdd() {
   editId = null;
   document.getElementById('mEditTitle').textContent = 'Nowy wpis';
   document.getElementById('tireSubmitBtn').textContent = 'Dodaj wpis';
-  ['fName','fPhone','fEmail','fPlate','fLoc','fNotes'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['fName','fPhone','fEmail','fPlate','fVehicle','fLoc','fPrice','fNotes'].forEach(function(id){ document.getElementById(id).value=''; });
   ['fW','fP','fD','fYear'].forEach(function(id){ document.getElementById(id).value=''; });
   document.getElementById('fNextChange').value = '';
   document.getElementById('fDateIn').value = new Date().toISOString().slice(0,10);
@@ -493,6 +503,8 @@ function openEdit(t) {
   document.getElementById('fPhone').value      = t.phone || '';
   document.getElementById('fEmail').value      = t.email || '';
   document.getElementById('fPlate').value      = t.licensePlate || '';
+  document.getElementById('fVehicle').value    = t.vehicle || '';
+  document.getElementById('fPrice').value      = (t.price != null ? t.price : '');
   document.getElementById('fLoc').value     = t.location || '';
   document.getElementById('fW').value       = t.tireWidth || '';
   document.getElementById('fP').value       = t.tireProfile || '';
@@ -549,7 +561,10 @@ async function saveTire(e) {
   try {
     var data={fullName:name,phone:document.getElementById('fPhone').value.trim(),
       email:document.getElementById('fEmail').value.trim()||null,
-      licensePlate:plate,location:loc,tireWidth:+w,tireProfile:+p,tireDiameter:+d,
+      licensePlate:plate,
+      vehicle:document.getElementById('fVehicle').value.trim()||null,
+      price:document.getElementById('fPrice').value!==''?+document.getElementById('fPrice').value:null,
+      location:loc,tireWidth:+w,tireProfile:+p,tireDiameter:+d,
       tireYear:document.getElementById('fYear').value?+document.getElementById('fYear').value:null,
       dateIn:dateIn,status:status,dateOut:dateOut||null,
       nextTireChange:document.getElementById('fNextChange').value||null,
