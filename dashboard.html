@@ -17,7 +17,6 @@
       <div class="page-header">
         <div>
           <h1 class="page-title">Dashboard</h1>
-          <p class="page-subtitle" id="subtitle">Witaj! Oto przegląd przechowalni.</p>
         </div>
         <button class="btn btn-primary" id="addBtn" style="display:none" onclick="window.location.href='tires.html?add=1'">+ Dodaj wpis</button>
       </div>
@@ -61,7 +60,6 @@
 var me = Auth.requireAuth(); if (!me) throw 0;
 Navbar.render();
 
-document.getElementById('subtitle').textContent = 'Witaj, ' + me.username + '! Oto przegląd przechowalni.';
 if (Auth.can(me, 'add_entries')) document.getElementById('addBtn').style.display = 'inline-flex';
 
 Promise.all([API.get('/tires/stats'), API.get('/tires')]).then(function(r) {
