@@ -829,6 +829,11 @@ code {
     padding: 0.75rem 0.85rem;
     background: var(--bg-card);
 }
+/* etykiety w siatce mają różną liczbę linii (np. „Profil %" vs „Średnica koła cal") —
+   dosuwamy pola do dołu komórki, by wszystkie inputy były na wspólnej linii */
+.tire-size-grid .form-group input {
+    margin-top: auto;
+}
 .tire-size-preview {
     padding: 0.4rem 0.85rem;
     font-family: "Courier New", monospace;
