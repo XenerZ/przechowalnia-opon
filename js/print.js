@@ -105,5 +105,32 @@ var Print = (function () {
     iframe.src = url;
   }
 
-  return { TAGS: TAGS, fillTemplate: fillTemplate, printTire: printTire, formatTireSize: formatTireSize };
+  // Druk zbiorczy — jeden dokument, etykiety rozdzielone podziałem strony
+  async function printTires(htmlTemplate, tiresArr, pageSize) {
+    if (!tiresArr || !tiresArr.length) return;
+    var parts = [];
+    for (var i = 0; i < tiresArr.length; i++) {
+      var filled = await fillTemplateForPrint(htmlTemplate, tiresArr[i]);
+      var brk = i < tiresArr.length - 1 ? 'page-break-after:always;' : '';
+      parts.push('<div style="' + brk + '">' + filled + '</div>');
+    }
+    var ps = (pageSize || 'A4').toLowerCase();
+    var pageCss = '@page { size: ' + ps + '; margin: 8mm; }';
+    var doc = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+      '<style>' + pageCss + ' body{margin:0;padding:0;} *{box-sizing:border-box;}</style>' +
+      '</head><body>' + parts.join('') + '</body></html>';
+
+    var blob   = new Blob([doc], { type: 'text/html' });
+    var url    = URL.createObjectURL(blob);
+    var iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;';
+    document.body.appendChild(iframe);
+    iframe.onload = function () {
+      try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+      finally { setTimeout(function () { document.body.removeChild(iframe); URL.revokeObjectURL(url); }, 1000); }
+    };
+    iframe.src = url;
+  }
+
+  return { TAGS: TAGS, fillTemplate: fillTemplate, printTire: printTire, printTires: printTires, formatTireSize: formatTireSize };
 })();

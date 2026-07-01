@@ -13,6 +13,17 @@
     .date-cell { display: flex; flex-direction: column; gap: 1px; line-height: 1.3; min-width: 92px; }
     .date-cell .din  { text-align: left; }
     .date-cell .dout { text-align: right; font-size: 0.76rem; color: var(--text-muted); }
+    /* zaznaczanie wielu pozycji */
+    .sel-cell { width: 36px; text-align: center; }
+    .sel-cell input { width: 16px; height: 16px; cursor: pointer; }
+    .bulk-bar {
+      display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+      margin: 0 0 .75rem; padding: .6rem .9rem;
+      background: var(--bg-table-head); border: 1px solid var(--border); border-radius: var(--radius);
+    }
+    .bulk-bar .bulk-count { font-size: .875rem; margin-right: .25rem; }
+    .bulk-bar .bulk-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .bulk-bar .print-dropdown { position: relative; display: inline-block; }
   </style>
 </head>
 <body>
@@ -62,10 +73,17 @@
         </div>
       </div>
 
+      <div id="bulkBar" class="bulk-bar" style="display:none">
+        <span class="bulk-count"><strong id="bulkCount">0</strong> zaznaczono</span>
+        <div class="bulk-actions" id="bulkActions"></div>
+        <button class="btn btn-sm btn-outline" onclick="clearSelection()">Wyczyść</button>
+      </div>
+
       <div class="card">
         <div class="table-wrapper">
           <table class="table">
             <thead><tr>
+              <th class="sel-cell"><input type="checkbox" id="selectAll" title="Zaznacz wszystkie"></th>
               <th class="sortable" data-col="id">ID <span class="sort-icon" id="si-id">↕</span></th>
               <th class="sortable" data-col="fullName">Klient <span class="sort-icon" id="si-fullName">↕</span></th>
               <th class="sortable" data-col="licensePlate">Nr rejestracyjny <span class="sort-icon" id="si-licensePlate">↕</span></th>
@@ -76,7 +94,7 @@
               <th>Status</th>
               <th>Akcje</th>
             </tr></thead>
-            <tbody id="tbody"><tr><td colspan="9" class="table-empty">Ładowanie…</td></tr></tbody>
+            <tbody id="tbody"><tr><td colspan="10" class="table-empty">Ładowanie…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -252,15 +270,16 @@
 <script src="js/navbar.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<script src="js/print.js"></script>
+<script src="js/print.js?v=2"></script>
 <script>
 var me = Auth.requireAuth(); if (!me) throw 0;
 Navbar.render();
 
-var tires = [], templates = [];
+var tires = [], templates = [], emailTemplates = [];
 var sortCol = 'id', sortDir = 'asc';
 var statusFilter = 'Wszystkie', weekFilter = 'all';
 var editId = null, deleteId = null, releaseTarget = null;
+var selected = new Set();
 
 if (Auth.can(me, 'add_entries')) document.getElementById('addBtn').style.display = 'inline-flex';
 
@@ -298,6 +317,11 @@ document.querySelectorAll('th[data-col]').forEach(function (th) {
 });
 
 document.addEventListener('click', function (e) {
+  // zaznaczanie pozycji (checkboxy)
+  if (e.target.id === 'selectAll') { toggleSelectAll(e.target.checked); return; }
+  if (e.target.classList && e.target.classList.contains('row-select')) { toggleSelect(+e.target.dataset.id, e.target.checked); return; }
+  if (e.target.closest('.sel-cell')) return; // klik w kolumnę zaznaczania nie otwiera podglądu
+
   var btn = e.target.closest('button[data-action]');
   if (btn) {
     var id  = +btn.dataset.id;
@@ -326,14 +350,16 @@ document.addEventListener('click', function (e) {
 });
 
 Promise.all([API.get('/tires'), API.get('/templates')]).then(function (r) {
-  tires = r[0]; templates = r[1]; render();
+  tires = r[0]; templates = r[1]; render(); buildBulkActions();
   var p = new URLSearchParams(location.search);
   var wpis = p.get('wpis');
   if (wpis) { var t = tires.find(function (x) { return String(x.id) === wpis; }); if (t) openPreview(t); }
   if (p.get('add') === '1' && Auth.can(me, 'add_entries')) openAdd();
 }).catch(function (e) {
-  document.getElementById('tbody').innerHTML = '<tr><td colspan="9" class="table-empty">Błąd: ' + e.message + '</td></tr>';
+  document.getElementById('tbody').innerHTML = '<tr><td colspan="10" class="table-empty">Błąd: ' + e.message + '</td></tr>';
 });
+// szablony e-mail — opcjonalne (endpoint wymaga uprawnień/funkcji „actions")
+API.get('/email-templates').then(function (d) { emailTemplates = d || []; buildBulkActions(); }).catch(function () { emailTemplates = []; });
 
 function getThisWeekRange() {
   var today = new Date(); today.setHours(0,0,0,0);
@@ -389,6 +415,9 @@ function filtered() {
 function render() {
   var rows = filtered();
   document.getElementById('subtitle').textContent = rows.length + ' z ' + tires.length + ' wpisów';
+  // usuń z zaznaczenia pozycje, których już nie ma, i odśwież pasek
+  selected.forEach(function (id) { if (!tires.some(function (t) { return t.id === id; })) selected.delete(id); });
+  updateBulkBar(rows);
   ['id','fullName','licensePlate','location','dateIn','dateOut'].forEach(function (c) {
     var el = document.getElementById('si-' + c); if (!el) return;
     el.textContent = sortCol === c ? (sortDir === 'asc' ? '↑' : '↓') : '↕';
@@ -399,7 +428,7 @@ function render() {
   document.getElementById('dateDot').style.display = hasDates ? 'inline-block' : 'none';
   document.getElementById('clearDatesBtn').style.display = hasDates ? '' : 'none';
 
-  if (!rows.length) { document.getElementById('tbody').innerHTML = '<tr><td colspan="9" class="table-empty">Brak wyników</td></tr>'; return; }
+  if (!rows.length) { document.getElementById('tbody').innerHTML = '<tr><td colspan="10" class="table-empty">Brak wyników</td></tr>'; return; }
 
   document.getElementById('tbody').innerHTML = rows.map(function (t) {
     var size  = Print.formatTireSize(t.tireWidth, t.tireProfile, t.tireDiameter, t.tireYear);
@@ -426,6 +455,7 @@ function render() {
     btns += '</div>';
 
     return '<tr class="row-clickable" data-id="' + t.id + '">' +
+      '<td class="sel-cell"><input type="checkbox" class="row-select" data-id="' + t.id + '"' + (selected.has(t.id) ? ' checked' : '') + '></td>' +
       '<td class="text-muted">' + t.id + '</td>' +
       '<td><strong>' + t.fullName + '</strong></td>' +
       '<td>' + plate + '</td>' +
@@ -472,6 +502,10 @@ function openPreview(t) {
     '<div class="form-actions" style="margin-top:1.5rem">' +
       '<button class="btn btn-outline" onclick="closeModal(\'mPreview\')">Zamknij</button>' +
       '<div style="display:flex;gap:.5rem">' +
+        (templates.length ? '<div class="print-dropdown"><button class="btn btn-outline" data-action="print-toggle" data-id="'+t.id+'">Drukuj</button>'+
+          '<div class="print-dropdown__menu" style="display:none"><div class="print-dropdown__header">Wybierz szablon</div>'+
+          templates.map(function(tpl){ return '<button class="print-dropdown__item" data-action="print-item" data-id="'+t.id+'" data-tpl="'+tpl.id+'">'+tpl.name+'</button>'; }).join('')+
+          '</div></div>' : '') +
         (Auth.can(me,'edit_entries') && t.status==='W przechowalni' ? '<button class="btn btn-release" data-action="release" data-id="'+t.id+'">Wydaj</button>' : '') +
         (Auth.can(me,'edit_entries') ? '<button class="btn btn-primary" data-action="edit" data-id="'+t.id+'">Edytuj</button>' : '') +
         (Auth.can(me,'delete_entries') ? '<button class="btn btn-danger" data-action="delete" data-id="'+t.id+'">Usuń</button>' : '') +
@@ -636,6 +670,98 @@ async function confirmDelete(e) {
 async function doPrint(tireId, tplId) {
   try{var t=tires.find(function(x){return x.id===tireId;});var tpl=await API.get('/templates/'+tplId);await Print.printTire(tpl.htmlContent,t,tpl.pageSize);}
   catch(e){alert('Błąd drukowania: '+e.message);}
+}
+
+/* ===== ZAZNACZANIE + OPERACJE ZBIOROWE ===== */
+function toggleSelect(id, on){ if(on) selected.add(id); else selected.delete(id); updateBulkBar(filtered()); }
+function toggleSelectAll(on){
+  var rows = filtered();
+  rows.forEach(function(t){ if(on) selected.add(t.id); else selected.delete(t.id); });
+  document.querySelectorAll('.row-select').forEach(function(cb){ cb.checked = selected.has(+cb.dataset.id); });
+  updateBulkBar(rows);
+}
+function clearSelection(){
+  selected.clear();
+  document.querySelectorAll('.row-select').forEach(function(cb){ cb.checked=false; });
+  updateBulkBar(filtered());
+}
+function selectedTires(){ return tires.filter(function(t){ return selected.has(t.id); }); }
+function updateBulkBar(rows){
+  var n = selected.size;
+  document.getElementById('bulkCount').textContent = n;
+  document.getElementById('bulkBar').style.display = n ? 'flex' : 'none';
+  var sa = document.getElementById('selectAll');
+  if (sa) {
+    var visSel = (rows||[]).filter(function(t){ return selected.has(t.id); }).length;
+    var total = rows ? rows.length : 0;
+    sa.checked = total > 0 && visSel === total;
+    sa.indeterminate = visSel > 0 && visSel < total;
+  }
+}
+function buildBulkActions(){
+  var el = document.getElementById('bulkActions'); if(!el) return;
+  var h = '';
+  if (Auth.can(me,'edit_entries')) h += '<button class="btn btn-sm btn-outline" onclick="bulkLocation()">Zmień lokalizację</button>';
+  if (templates.length) {
+    h += '<div class="print-dropdown"><button class="btn btn-sm btn-outline" onclick="toggleBulkMenu(\'bulkPrintMenu\')">Drukuj ▾</button>'+
+      '<div class="print-dropdown__menu" id="bulkPrintMenu" style="display:none"><div class="print-dropdown__header">Wybierz szablon</div>'+
+      templates.map(function(tpl){ return '<button class="print-dropdown__item" onclick="bulkPrint('+tpl.id+')">'+tpl.name+'</button>'; }).join('')+
+      '</div></div>';
+  }
+  if (emailTemplates.length) {
+    h += '<div class="print-dropdown"><button class="btn btn-sm btn-outline" onclick="toggleBulkMenu(\'bulkMailMenu\')">Wyślij e-mail ▾</button>'+
+      '<div class="print-dropdown__menu" id="bulkMailMenu" style="display:none"><div class="print-dropdown__header">Wybierz szablon</div>'+
+      emailTemplates.map(function(tpl){ return '<button class="print-dropdown__item" onclick="bulkSendEmail('+tpl.id+')">'+tpl.name+'</button>'; }).join('')+
+      '</div></div>';
+  }
+  if (Auth.can(me,'delete_entries')) h += '<button class="btn btn-sm btn-danger" onclick="bulkDelete()">Usuń zaznaczone</button>';
+  el.innerHTML = h;
+}
+function toggleBulkMenu(menuId){
+  var menu = document.getElementById(menuId); if(!menu) return;
+  var open = menu.style.display !== 'none';
+  document.querySelectorAll('.print-dropdown__menu').forEach(function(m){ m.style.display='none'; });
+  menu.style.display = open ? 'none' : 'block';
+}
+async function bulkDelete(){
+  var items = selectedTires(); if(!items.length) return;
+  if(!confirm('Usunąć zaznaczone pozycje ('+items.length+')? Operacja jest nieodwracalna.')) return;
+  var fail=0;
+  for(var i=0;i<items.length;i++){
+    try{ await API.del('/tires/'+items[i].id); tires=tires.filter(function(t){return t.id!==items[i].id;}); selected.delete(items[i].id); }
+    catch(e){ fail++; }
+  }
+  render();
+  if(fail) alert('Nie udało się usunąć '+fail+' pozycji.');
+}
+async function bulkLocation(){
+  var items = selectedTires(); if(!items.length) return;
+  var loc = prompt('Nowa lokalizacja dla zaznaczonych ('+items.length+'):');
+  if(loc===null) return;
+  loc = loc.trim().toUpperCase();
+  if(!loc) return;
+  var fail=0;
+  for(var i=0;i<items.length;i++){
+    try{ var res=await API.put('/tires/'+items[i].id,{location:loc}); var idx=tires.findIndex(function(t){return t.id===items[i].id;}); if(idx!==-1) tires[idx]=res; }
+    catch(e){ fail++; }
+  }
+  render();
+  if(fail) alert('Nie udało się zaktualizować '+fail+' pozycji.');
+}
+async function bulkPrint(tplId){
+  var m=document.getElementById('bulkPrintMenu'); if(m) m.style.display='none';
+  var items = selectedTires(); if(!items.length) return;
+  try{ var tpl=await API.get('/templates/'+tplId); await Print.printTires(tpl.htmlContent, items, tpl.pageSize); }
+  catch(e){ alert(e.message||'Błąd druku.'); }
+}
+async function bulkSendEmail(tplId){
+  var m=document.getElementById('bulkMailMenu'); if(m) m.style.display='none';
+  var items = selectedTires(); if(!items.length) return;
+  if(!confirm('Wysłać wiadomość do klientów zaznaczonych pozycji ('+items.length+')?')) return;
+  try{
+    var r=await API.post('/tires/send-email',{ ids: items.map(function(t){return t.id;}), templateId: tplId });
+    alert('Wysłano: '+r.sent+', pominięto (brak e-maila): '+r.skipped+', błędy: '+r.failed);
+  }catch(e){ alert(e.message||'Błąd wysyłki.'); }
 }
 
 function openModal(id){document.getElementById(id).style.display='flex';}

@@ -34,6 +34,13 @@ function handle_tires($method, $id, $body) {
         return;
     }
 
+    // Wysyłka e-maila wg szablonu do zaznaczonych pozycji (operacja zbiorcza)
+    if ($id === 'send-email' && $method === 'POST') {
+        require_feature($user, 'actions');
+        tires_send_email($body, $company_id);
+        return;
+    }
+
     if ($id) {
         switch ($method) {
             case 'PUT':    require_permission($user, 'edit_entries');   tires_update($id, $body, $company_id); break;
@@ -275,4 +282,48 @@ function tires_delete($id, $company_id) {
     }
     $pdo->prepare('DELETE FROM tire_entries WHERE id = ? AND company_id = ?')->execute([$id, $company_id]);
     echo json_encode(['success' => true]);
+}
+
+// Wysyłka e-maila wg szablonu do wskazanych pozycji (klientom z adresem e-mail)
+function tires_send_email($body, $company_id) {
+    require_once __DIR__ . '/actions.php'; // fill_placeholders() + send_mail() (przez mailer.php)
+
+    $ids   = $body['ids'] ?? [];
+    $tplId = $body['templateId'] ?? null;
+    $ids   = is_array($ids) ? array_values(array_filter(array_map('intval', $ids))) : [];
+    if (!count($ids)) { http_response_code(400); echo json_encode(['message' => 'Brak zaznaczonych pozycji.']); return; }
+    if (!$tplId)      { http_response_code(400); echo json_encode(['message' => 'Wybierz szablon wiadomości.']); return; }
+
+    $pdo = get_pdo();
+    $t = $pdo->prepare('SELECT subject, html_content FROM email_templates WHERE id = ? AND company_id = ?');
+    $t->execute([$tplId, $company_id]);
+    $tpl = $t->fetch();
+    if (!$tpl) { http_response_code(404); echo json_encode(['message' => 'Nie znaleziono szablonu.']); return; }
+
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $q = $pdo->prepare("
+        SELECT te.id, c.full_name AS fullName, c.email, c.phone, te.license_plate AS licensePlate,
+               te.tire_width AS tireWidth, te.tire_profile AS tireProfile, te.tire_diameter AS tireDiameter,
+               te.location, te.date_in AS dateIn, te.status, te.notes,
+               te.next_tire_change AS nextTireChange,
+               DATEDIFF(NOW(), te.date_in) AS daysStored
+        FROM tire_entries te JOIN customers c ON c.id = te.customer_id
+        WHERE te.company_id = ? AND te.id IN ($ph)
+    ");
+    $q->execute(array_merge([$company_id], $ids));
+
+    $sent = $failed = $skipped = 0; $details = [];
+    foreach ($q->fetchAll() as $tire) {
+        $recipient = trim($tire['email'] ?? '');
+        if ($recipient === '') { $skipped++; $details[] = ['tire' => $tire['licensePlate'], 'status' => 'skipped', 'reason' => 'brak e-maila']; continue; }
+        $subject = fill_placeholders($tpl['subject'], $tire);
+        $html    = fill_placeholders($tpl['html_content'], $tire);
+        try {
+            send_mail($recipient, $subject, $html);
+            $sent++; $details[] = ['tire' => $tire['licensePlate'], 'recipient' => $recipient, 'status' => 'sent'];
+        } catch (Exception $e) {
+            $failed++; $details[] = ['tire' => $tire['licensePlate'], 'recipient' => $recipient, 'status' => 'failed', 'error' => $e->getMessage()];
+        }
+    }
+    echo json_encode(['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped, 'details' => $details]);
 }
