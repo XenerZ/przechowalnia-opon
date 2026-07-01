@@ -8,6 +8,12 @@
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
   <link rel="manifest" href="assets/favicon/site.webmanifest"><link rel="stylesheet" href="css/app.css?v=2">
+  <style>
+    /* scalona kolumna dat: przyjęcie u góry (do lewej), wydanie pod spodem (do prawej) */
+    .date-cell { display: flex; flex-direction: column; gap: 1px; line-height: 1.3; min-width: 92px; }
+    .date-cell .din  { text-align: left; }
+    .date-cell .dout { text-align: right; font-size: 0.76rem; color: var(--text-muted); }
+  </style>
 </head>
 <body>
 <div class="app-layout">
@@ -23,7 +29,7 @@
       </div>
 
       <div class="toolbar">
-        <input class="search-input" id="search" placeholder="Szukaj po nazwisku, rejestracji, rozmiarze..." oninput="render()">
+        <input class="search-input" id="search" placeholder="Szukaj po nazwisku, telefonie, rejestracji, rozmiarze..." oninput="render()">
         <div class="filter-group" id="filterGroup">
           <button class="filter-btn filter-btn--active" data-s="Wszystkie" onclick="setStatus(this)">Wszystkie</button>
           <button class="filter-btn" data-s="W przechowalni" onclick="setStatus(this)">W przechowalni</button>
@@ -62,17 +68,15 @@
             <thead><tr>
               <th class="sortable" data-col="id">ID <span class="sort-icon" id="si-id">↕</span></th>
               <th class="sortable" data-col="fullName">Klient <span class="sort-icon" id="si-fullName">↕</span></th>
-              <th>Telefon</th>
               <th class="sortable" data-col="licensePlate">Nr rejestracyjny <span class="sort-icon" id="si-licensePlate">↕</span></th>
               <th>Pojazd</th>
               <th>Rozmiar opon</th>
               <th class="sortable" data-col="location">Lokalizacja <span class="sort-icon" id="si-location">↕</span></th>
-              <th class="sortable" data-col="dateIn">Data przyjęcia <span class="sort-icon" id="si-dateIn">↕</span></th>
+              <th class="sortable" data-col="dateIn">Przyjęcie / wydanie <span class="sort-icon" id="si-dateIn">↕</span></th>
               <th>Status</th>
-              <th class="sortable" data-col="dateOut">Data wydania <span class="sort-icon" id="si-dateOut">↕</span></th>
               <th>Akcje</th>
             </tr></thead>
-            <tbody id="tbody"><tr><td colspan="11" class="table-empty">Ładowanie…</td></tr></tbody>
+            <tbody id="tbody"><tr><td colspan="9" class="table-empty">Ładowanie…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -330,7 +334,7 @@ Promise.all([API.get('/tires'), API.get('/templates')]).then(function (r) {
   if (wpis) { var t = tires.find(function (x) { return String(x.id) === wpis; }); if (t) openPreview(t); }
   if (p.get('add') === '1' && Auth.can(me, 'add_entries')) openAdd();
 }).catch(function (e) {
-  document.getElementById('tbody').innerHTML = '<tr><td colspan="11" class="table-empty">Błąd: ' + e.message + '</td></tr>';
+  document.getElementById('tbody').innerHTML = '<tr><td colspan="9" class="table-empty">Błąd: ' + e.message + '</td></tr>';
 });
 
 function getThisWeekRange() {
@@ -397,7 +401,7 @@ function render() {
   document.getElementById('dateDot').style.display = hasDates ? 'inline-block' : 'none';
   document.getElementById('clearDatesBtn').style.display = hasDates ? '' : 'none';
 
-  if (!rows.length) { document.getElementById('tbody').innerHTML = '<tr><td colspan="11" class="table-empty">Brak wyników</td></tr>'; return; }
+  if (!rows.length) { document.getElementById('tbody').innerHTML = '<tr><td colspan="9" class="table-empty">Brak wyników</td></tr>'; return; }
 
   document.getElementById('tbody').innerHTML = rows.map(function (t) {
     var size  = Print.formatTireSize(t.tireWidth, t.tireProfile, t.tireDiameter, t.tireYear);
@@ -426,14 +430,12 @@ function render() {
     return '<tr class="row-clickable" data-id="' + t.id + '">' +
       '<td class="text-muted">' + t.id + '</td>' +
       '<td><strong>' + t.fullName + '</strong></td>' +
-      '<td>' + (t.phone || '—') + '</td>' +
       '<td>' + plate + '</td>' +
       '<td>' + (t.vehicle || '—') + '</td>' +
       '<td>' + size + '</td>' +
       '<td><span class="location-badge">' + t.location + '</span></td>' +
-      '<td>' + t.dateIn + '</td>' +
+      '<td><div class="date-cell"><span class="din">' + t.dateIn + '</span><span class="dout">' + (t.dateOut || '—') + '</span></div></td>' +
       '<td>' + badge + '</td>' +
-      '<td>' + (t.dateOut || '—') + '</td>' +
       '<td>' + btns + '</td>' +
       '</tr>';
   }).join('');
