@@ -5,9 +5,22 @@
 })();
 
 var Auth = (function () {
+  // token wygasł? (dekoduje pole exp z JWT; błąd dekodowania nie blokuje logowania)
+  function tokenExpired() {
+    var t = API.getToken();
+    if (!t) return true;
+    try {
+      var p = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return (p.exp || 0) * 1000 < Date.now();
+    } catch (e) { return false; }
+  }
+
   function requireAuth() {
     var user = API.getUser();
-    if (!user || !API.getToken()) { window.location.href = 'login.html'; return null; }
+    if (!user || !API.getToken() || tokenExpired()) {
+      API.removeToken(); API.removeUser();
+      window.location.href = 'login.html'; return null;
+    }
     return user;
   }
 

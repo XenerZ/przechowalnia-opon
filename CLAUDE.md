@@ -29,7 +29,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `api/cron/check-actions.php` — runs all active automation actions. Configure in OVH panel: *Hosting → Zadania zaplanowane*, once daily.
 
 ### Auth flow
-JWT stored in `sessionStorage` (`po_token`, `po_session`). Token payload includes `id`, `username`, `role`, `permissions[]`, `exp` (8h). Permissions are stored in `user_permissions` table (not a column on `users`). The `manage_users` permission gates admin-only pages (Templates, Actions, Users).
+JWT stored in `localStorage` (`po_token`, `po_session`) so the session survives closing the tab/browser. Token payload includes `id`, `username`, `role`, `permissions[]`, `exp` (30 days). `auth.js` decodes `exp` on load and logs out if expired; `api.js` redirects to login on any `401`. **Note:** the storage backend lives in the gitignored `js/api.js`, so switching sessionStorage↔localStorage there must be applied per-environment (not deployed via git). Permissions are stored in `user_permissions` table (not a column on `users`). The `manage_users` permission gates admin-only pages (Templates, Actions, Users).
 
 ### Adding a new API route
 1. Create `api/routes/myroute.php` with `handle_myroute($method, $id, $body)`.

@@ -81,7 +81,7 @@ function build_jwt_payload(array $user, PDO $pdo): array {
         'features'    => $features,
         'permissions' => $permissions,
         'iat'         => time(),
-        'exp'         => time() + 8 * 3600,
+        'exp'         => time() + 30 * 24 * 3600, // 30 dni — sesja trwała (localStorage)
     ];
 }
 
