@@ -5,12 +5,30 @@ function handle_customers($method, $id, $body) {
     $user = require_auth();
     require_feature($user, 'customers');
 
-    if ($method !== 'GET') { method_not_allowed(); return; }
-
     $company_id = $user['company_id'];
     $pdo        = get_pdo();
 
-    $stmt = $pdo->prepare('SELECT id, full_name AS fullName, phone FROM customers WHERE company_id = ? ORDER BY full_name');
+    // Usuwanie klienta — tylko gdy nie ma powiązanych wpisów (ochrona danych/FK)
+    if ($method === 'DELETE' && $id) {
+        $chk = $pdo->prepare('SELECT id FROM customers WHERE id = ? AND company_id = ?');
+        $chk->execute([$id, $company_id]);
+        if (!$chk->fetch()) { http_response_code(404); echo json_encode(['message' => 'Klient nie istnieje.']); return; }
+
+        $cnt = $pdo->prepare('SELECT COUNT(*) FROM tire_entries WHERE customer_id = ? AND company_id = ?');
+        $cnt->execute([$id, $company_id]);
+        if ((int)$cnt->fetchColumn() > 0) {
+            http_response_code(409);
+            echo json_encode(['message' => 'Nie można usunąć klienta z powiązanymi wpisami. Usuń najpierw jego wpisy.']);
+            return;
+        }
+        $pdo->prepare('DELETE FROM customers WHERE id = ? AND company_id = ?')->execute([$id, $company_id]);
+        echo json_encode(['success' => true]);
+        return;
+    }
+
+    if ($method !== 'GET') { method_not_allowed(); return; }
+
+    $stmt = $pdo->prepare('SELECT id, full_name AS fullName, phone, email FROM customers WHERE company_id = ? ORDER BY full_name');
     $stmt->execute([$company_id]);
     $customers = $stmt->fetchAll();
 
@@ -37,6 +55,7 @@ function handle_customers($method, $id, $body) {
 
     $result = array_map(function ($c) use ($entries) {
         $c['phone']   = $c['phone'] ?? '';
+        $c['email']   = $c['email'] ?? '';
         $c['entries'] = array_values(array_map(
             fn($e) => [
                 'id'           => (int)$e['id'],

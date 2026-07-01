@@ -113,11 +113,13 @@
           </div>
           <div class="form-group">
             <label>Telefon</label>
-            <input id="fPhone" placeholder="np. 600 100 200">
+            <input id="fPhone" placeholder="np. 600100200 lub +48600100200">
+            <span class="form-error" id="errPhone" style="display:none"></span>
           </div>
           <div class="form-group">
             <label>E-mail klienta</label>
             <input type="email" id="fEmail" placeholder="np. jan@example.com">
+            <span class="form-error" id="errEmail" style="display:none"></span>
           </div>
           <div class="form-group">
             <label>Nr rejestracyjny *</label>
@@ -521,10 +523,13 @@ function openEdit(t) {
   clearErrors(); sizePreview(); openModal('mEdit');
 }
 function clearErrors() {
-  ['Name','Plate','Loc','W','P','D','DateIn','DateOut'].forEach(function(s){
+  ['Name','Phone','Email','Plate','Loc','W','P','D','DateIn','DateOut'].forEach(function(s){
     var el = document.getElementById('err'+s); if(el){el.style.display='none';el.textContent='';}
   });
 }
+// walidacja pomocnicza — telefon: tylko cyfry, opcjonalny prefiks +, bez spacji/myślników, 7–15 cyfr
+function isValidPhone(v){ return /^\+?\d{7,15}$/.test(v); }
+function isValidEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 function showErr(id, msg) { var el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
 function onStatusChange() {
   var s = document.getElementById('fStatus').value;
@@ -545,9 +550,12 @@ async function saveTire(e) {
       loc=document.getElementById('fLoc').value.trim(), w=document.getElementById('fW').value,
       p=document.getElementById('fP').value, d=document.getElementById('fD').value,
       dateIn=document.getElementById('fDateIn').value, status=document.getElementById('fStatus').value,
-      dateOut=document.getElementById('fDateOut').value;
+      dateOut=document.getElementById('fDateOut').value,
+      phone=document.getElementById('fPhone').value.trim(), email=document.getElementById('fEmail').value.trim();
   var ok=true;
   if(!name){showErr('errName','Pole wymagane');ok=false;}
+  if(phone && !isValidPhone(phone)){showErr('errPhone','Tylko cyfry (opcjonalnie +), bez spacji i myślników, 7–15 cyfr');ok=false;}
+  if(email && !isValidEmail(email)){showErr('errEmail','Nieprawidłowy adres e-mail');ok=false;}
   if(!plate){showErr('errPlate','Pole wymagane');ok=false;}
   if(!loc){showErr('errLoc','Pole wymagane');ok=false;}
   if(!w){showErr('errW','Pole wymagane');ok=false;}
