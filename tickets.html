@@ -290,6 +290,7 @@ async function submitNewTicket() {
     openTicket(res.id);
   } catch(e) {
     document.getElementById('newTicketAlert').innerHTML = '<div class="alert alert-error">' + esc(e.message) + '</div>';
+  } finally {
     btn.disabled = false; btn.textContent = 'Wyślij zgłoszenie';
   }
 }

@@ -235,11 +235,7 @@
     <div class="modal-body">
       <form onsubmit="confirmDelete(event)">
         <div class="confirm-message" id="delMsg"></div>
-        <div class="form-group" style="margin-top:1.25rem">
-          <label>Potwierdź hasłem</label>
-          <input type="password" id="delPass" placeholder="Twoje hasło">
-          <span class="form-error" id="delErr" style="display:none"></span>
-        </div>
+        <span class="form-error" id="delErr" style="display:none;margin-top:.75rem"></span>
         <div class="form-actions" style="margin-top:1.25rem">
           <button type="button" class="btn btn-outline" onclick="closeModal('mDelete')">Anuluj</button>
           <button type="submit" class="btn btn-danger" id="delBtn">Usuń</button>
@@ -610,21 +606,23 @@ async function confirmRelease() {
 function openDelete(t) {
   deleteId=t.id;
   document.getElementById('delMsg').innerHTML='Czy na pewno chcesz usunąć wpis klienta <strong>'+t.fullName+'</strong> ('+t.licensePlate+')? <span style="color:var(--danger)">Operacja jest nieodwracalna.</span>';
-  document.getElementById('delPass').value=''; document.getElementById('delErr').style.display='none';
+  document.getElementById('delErr').style.display='none';
+  var btn=document.getElementById('delBtn'); btn.disabled=false; btn.textContent='Usuń';
   openModal('mDelete');
 }
 async function confirmDelete(e) {
   e.preventDefault();
-  var pass=document.getElementById('delPass').value, errEl=document.getElementById('delErr');
-  if(!pass){errEl.textContent='Podaj hasło.';errEl.style.display='block';return;}
-  var btn=document.getElementById('delBtn'); btn.disabled=true; btn.textContent='Weryfikacja…';
+  var errEl=document.getElementById('delErr');
+  var btn=document.getElementById('delBtn'); btn.disabled=true; btn.textContent='Usuwanie…';
   try{
-    var v=await API.post('/auth/verify-password',{password:pass});
-    if(!v.valid){errEl.textContent='Nieprawidłowe hasło.';errEl.style.display='block';document.getElementById('delPass').value='';btn.disabled=false;btn.textContent='Usuń';return;}
     await API.del('/tires/'+deleteId);
     tires=tires.filter(function(t){return t.id!==deleteId;});
     closeModal('mDelete'); render();
-  }catch(err){errEl.textContent=err.message;errEl.style.display='block';btn.disabled=false;btn.textContent='Usuń';}
+  }catch(err){
+    errEl.textContent=err.message; errEl.style.display='block';
+  }finally{
+    btn.disabled=false; btn.textContent='Usuń';
+  }
 }
 
 async function doPrint(tireId, tplId) {
