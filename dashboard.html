@@ -7,7 +7,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
-  <link rel="manifest" href="assets/favicon/site.webmanifest"><link rel="stylesheet" href="css/app.css?v=2">
+  <link rel="manifest" href="assets/favicon/site.webmanifest"><link rel="stylesheet" href="css/app.css?v=3">
 </head>
 <body>
 <div class="app-layout">
@@ -61,6 +61,14 @@ var me = Auth.requireAuth(); if (!me) throw 0;
 Navbar.render();
 
 if (Auth.can(me, 'add_entries')) document.getElementById('addBtn').style.display = 'inline-flex';
+
+// skeleton loading
+document.getElementById('statsGrid').innerHTML = new Array(4).fill(
+  '<div class="stat-card"><span class="skeleton sk-line" style="height:28px;width:55%;margin:.2rem 0 .6rem"></span><span class="skeleton sk-line" style="width:75%"></span></div>'
+).join('');
+document.getElementById('recentBody').innerHTML = new Array(5).fill(
+  '<tr>' + new Array(6).fill('<td><span class="skeleton sk-line"></span></td>').join('') + '</tr>'
+).join('');
 
 Promise.all([API.get('/tires/stats'), API.get('/tires')]).then(function(r) {
   var s   = r[0];

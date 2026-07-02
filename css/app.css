@@ -1931,3 +1931,18 @@ code {
 @media (max-width: 640px) {
     .template-layout { grid-template-columns: 1fr; }
 }
+
+/* ===== SKELETON LOADING ===== */
+:root            { --skeleton-base: #dde1e7; --skeleton-hl: #eef2f7; }
+[data-theme="dark"] { --skeleton-base: #232b3c; --skeleton-hl: #2e3850; }
+@keyframes skeleton-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+.skeleton {
+    display: block;
+    background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-hl) 37%, var(--skeleton-base) 63%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.2s ease-in-out infinite;
+    border-radius: 6px;
+}
+.sk-line  { height: 12px; width: 100%; margin: 6px 0; }
+.sk-badge { display: inline-block; height: 22px; width: 88px; border-radius: 20px; }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
