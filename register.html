@@ -73,7 +73,13 @@
       font-size: .95rem;
       font-weight: 700;
       color: var(--text);
-      margin-bottom: .35rem;
+      margin-bottom: .15rem;
+    }
+    .plan-price {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: .5rem;
     }
     .plan-feature {
       font-size: .75rem;
@@ -228,9 +234,13 @@ function renderPlans(plans) {
     features.push({ text: 'Baza klientów', on: p.hasCustomers });
     features.push({ text: 'Akcje automatyczne', on: p.hasActions });
 
+    var priceTxt = (p.priceMonthly && p.priceMonthly > 0)
+      ? (Number(p.priceMonthly).toFixed(2).replace('.', ',') + ' zł / mies.')
+      : 'Za darmo';
     return '<label class="plan-card" data-plan="' + p.id + '">' +
       '<input type="radio" name="plan" value="' + p.id + '">' +
       '<div class="plan-name">' + p.name + '</div>' +
+      '<div class="plan-price">' + priceTxt + '</div>' +
       features.map(function(f) {
         return '<div class="plan-feature' + (f.on ? '' : ' plan-feature--no') + '">' + f.text + '</div>';
       }).join('') +

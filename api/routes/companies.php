@@ -225,7 +225,12 @@ function companies_update($id, $body) {
 
 function companies_approve($id) {
     $pdo = get_pdo();
-    $pdo->prepare("UPDATE companies SET status = 'active' WHERE id = ?")->execute([$id]);
+    // okres rozliczeniowy startuje w dniu zatwierdzenia; cykl miesięczny
+    $pdo->prepare("UPDATE companies
+            SET status = 'active',
+                billing_date = COALESCE(billing_date, CURDATE()),
+                next_billing_at = DATE_ADD(COALESCE(billing_date, CURDATE()), INTERVAL 1 MONTH)
+            WHERE id = ?")->execute([$id]);
     $pdo->prepare("UPDATE users SET status = 'active' WHERE company_id = ? AND status = 'inactive'")->execute([$id]);
     echo json_encode(['success' => true]);
 }
