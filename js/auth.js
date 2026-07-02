@@ -39,3 +39,24 @@ var Auth = (function () {
 
   return { requireAuth: requireAuth, can: can, hasFeature: hasFeature, logout: logout };
 })();
+
+// Odświeżenie sesji z serwera — plan/uprawnienia/rola mogły zmienić się po stronie admina.
+// Aktualizuje token i (jeśli zakres się zmienił) przeładowuje stronę, by odblokować funkcje.
+(function refreshSession() {
+  if (typeof API === 'undefined' || !API.getToken || !API.getToken()) return;
+  var before = API.getUser() || {};
+  if (before.impersonated_by) return; // nie ruszaj sesji impersonacji
+  API.post('/auth/refresh', {}).then(function (res) {
+    if (!res || !res.token || !res.user) return;
+    API.saveToken(res.token);
+    API.saveUser(res.user);
+    var scope = function (u) {
+      return JSON.stringify([
+        u.role || '', u.plan_id || '',
+        (u.features || []).slice().sort(),
+        (u.permissions || []).slice().sort()
+      ]);
+    };
+    if (scope(before) !== scope(res.user)) location.reload();
+  }).catch(function () {});
+})();

@@ -9,6 +9,10 @@ function handle_auth($method, $action, $body) {
             if ($method !== 'POST') { method_not_allowed(); return; }
             auth_login($body);
             break;
+        case 'refresh':
+            if ($method !== 'POST') { method_not_allowed(); return; }
+            auth_refresh();
+            break;
         case 'register':
             if ($method !== 'POST') { method_not_allowed(); return; }
             auth_register($body);
@@ -122,6 +126,22 @@ function auth_login($body) {
     echo json_encode(['token' => jwt_encode($payload, JWT_SECRET), 'user' => $payload]);
 }
 
+// Ponowne wydanie tokenu z aktualnego stanu bazy (plan/uprawnienia/rola mogły się zmienić)
+function auth_refresh() {
+    $current = require_auth();
+    $pdo  = get_pdo();
+    $stmt = $pdo->prepare('SELECT u.*, c.status AS company_status FROM users u JOIN companies c ON u.company_id = c.id WHERE u.id = ?');
+    $stmt->execute([$current['id']]);
+    $user = $stmt->fetch();
+    if (!$user) { http_response_code(404); echo json_encode(['message' => 'Użytkownik nie istnieje.']); return; }
+    if ($user['status'] !== 'active' || $user['company_status'] !== 'active') {
+        http_response_code(403); echo json_encode(['message' => 'Konto jest nieaktywne.']); return;
+    }
+    $payload = build_jwt_payload($user, $pdo);
+    if (!empty($current['impersonated_by'])) $payload['impersonated_by'] = $current['impersonated_by'];
+    echo json_encode(['token' => jwt_encode($payload, JWT_SECRET), 'user' => $payload]);
+}
+
 function auth_register($body) {
     $company = $body['company'] ?? [];
     $userData = $body['user']   ?? [];
@@ -199,8 +219,14 @@ function auth_register($body) {
 
         $userId   = generate_uuid();
         $hash     = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-        $pdo->prepare('INSERT INTO users (id, username, email, password, role, company_id, status) VALUES (?,?,?,?,\'pracownik\',?,\'inactive\')')
+        // Główne konto firmy = administrator z pełnymi uprawnieniami
+        $pdo->prepare('INSERT INTO users (id, username, email, password, role, company_id, status) VALUES (?,?,?,?,\'admin\',?,\'inactive\')')
             ->execute([$userId, $username, $companyEmail, $hash, $companyId]);
+
+        $permStmt = $pdo->prepare('INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)');
+        foreach (['manage_users','add_entries','edit_entries','delete_entries'] as $perm) {
+            $permStmt->execute([$userId, $perm]);
+        }
 
         $pdo->commit();
 
