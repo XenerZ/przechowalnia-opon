@@ -5,6 +5,7 @@ require_once __DIR__ . '/../helpers/mailer.php';
 function handle_actions($method, $id, $sub, $body) {
     $user = require_auth();
     require_permission($user, 'manage_users');
+    require_feature($user, 'actions');
 
     if ($id && $sub === 'run'  && $method === 'POST') { action_run($id);         return; }
     if ($id && $sub === 'logs' && $method === 'GET')  { action_logs($id);        return; }

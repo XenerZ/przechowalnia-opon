@@ -2,11 +2,11 @@ var Navbar = (function () {
   var LINKS = [
     { href: 'dashboard.html', label: 'Dashboard' },
     { href: 'tires.html',     label: 'Opony' },
-    { href: 'customers.html', label: 'Klienci' },
+    { href: 'customers.html', label: 'Klienci', feature: 'customers' },
   ];
   var ADMIN_LINKS = [
-    { href: 'templates.html', label: 'Szablony' },
-    { href: 'actions.html',   label: 'Akcje automatyczne' },
+    { href: 'templates.html', label: 'Szablony',           feature: 'actions' },
+    { href: 'actions.html',   label: 'Akcje automatyczne', feature: 'actions' },
   ];
 
   function currentFile() {
@@ -26,6 +26,8 @@ var Navbar = (function () {
 
     var allLinks = LINKS.slice();
     if (user && Auth.can(user, 'manage_users')) allLinks = allLinks.concat(ADMIN_LINKS);
+    // pokaż tylko linki, których funkcja jest w planie użytkownika (np. customers/actions)
+    allLinks = allLinks.filter(function (l) { return !l.feature || Auth.hasFeature(user, l.feature); });
 
     var linksHtml = allLinks.map(function (l) {
       var active = file === l.href;
