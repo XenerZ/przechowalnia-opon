@@ -13,6 +13,10 @@ function handle_auth($method, $action, $body) {
             if ($method !== 'POST') { method_not_allowed(); return; }
             auth_refresh();
             break;
+        case 'account':
+            if ($method !== 'POST' && $method !== 'PUT') { method_not_allowed(); return; }
+            auth_update_account($body);
+            break;
         case 'register':
             if ($method !== 'POST') { method_not_allowed(); return; }
             auth_register($body);
@@ -124,6 +128,31 @@ function auth_login($body) {
 
     $payload = build_jwt_payload($user, $pdo);
     echo json_encode(['token' => jwt_encode($payload, JWT_SECRET), 'user' => $payload]);
+}
+
+// Samodzielna edycja danych konta przez użytkownika (login + e-mail)
+function auth_update_account($body) {
+    $current  = require_auth();
+    $username = trim($body['username'] ?? '');
+    $email    = trim($body['email'] ?? '');
+
+    if (!$username || !$email) {
+        http_response_code(400); echo json_encode(['message' => 'Login i e-mail są wymagane.']); return;
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400); echo json_encode(['message' => 'Nieprawidłowy adres e-mail.']); return;
+    }
+
+    $pdo = get_pdo();
+    $dup = $pdo->prepare('SELECT id FROM users WHERE username = ? AND id <> ?');
+    $dup->execute([$username, $current['id']]);
+    if ($dup->fetch()) {
+        http_response_code(409); echo json_encode(['message' => 'Nazwa użytkownika jest już zajęta.']); return;
+    }
+
+    $pdo->prepare('UPDATE users SET username = ?, email = ? WHERE id = ?')
+        ->execute([$username, $email, $current['id']]);
+    echo json_encode(['success' => true, 'username' => $username, 'email' => $email]);
 }
 
 // Ponowne wydanie tokenu z aktualnego stanu bazy (plan/uprawnienia/rola mogły się zmienić)

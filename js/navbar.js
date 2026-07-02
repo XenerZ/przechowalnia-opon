@@ -81,6 +81,7 @@ var Navbar = (function () {
             '</div>' +
             '<div class="user-dropdown-divider"></div>' +
             usersLink +
+            '<button class="user-dropdown-item" onclick="Navbar.openAccount()">Moje konto</button>' +
             '<button class="user-dropdown-item" onclick="Navbar.openPasswordChange()">Zmień hasło</button>' +
             '<button class="user-dropdown-item user-dropdown-item--danger" onclick="Auth.logout()">Wyloguj się</button>' +
           '</div>' +
@@ -112,6 +113,7 @@ var Navbar = (function () {
         '</div>' +
         '<div class="navbar-mobile-divider"></div>' +
         mobileUsersLink +
+        '<button class="navbar-mobile-action" onclick="Navbar.closeMobile();Navbar.openAccount()">Moje konto</button>' +
         '<button class="navbar-mobile-action" onclick="Navbar.closeMobile();Navbar.openPasswordChange()">Zmień hasło</button>' +
         '<button class="navbar-mobile-action navbar-mobile-action--danger" onclick="Auth.logout()">Wyloguj się</button>' +
       '</div>';
@@ -281,6 +283,94 @@ var Navbar = (function () {
     }
   }
 
+  // ── Modal „Moje konto" (login + e-mail) ────────────────────────────────────────
+  function ensureAccountModal() {
+    if (document.getElementById('navMAccount')) return;
+    var div = document.createElement('div');
+    div.innerHTML =
+      '<div class="modal-overlay" id="navMAccount" style="display:none" onclick="if(event.target===this)Navbar.closeAccount()">' +
+        '<div class="modal-box" style="max-width:420px">' +
+          '<div class="modal-header">' +
+            '<span class="modal-title">Moje konto</span>' +
+            '<button class="modal-close" onclick="Navbar.closeAccount()">✕</button>' +
+          '</div>' +
+          '<div class="modal-body">' +
+            '<form onsubmit="Navbar.saveAccount(event)">' +
+              '<div class="form-group">' +
+                '<label>Nazwa użytkownika *</label>' +
+                '<input type="text" id="navAccUser" placeholder="login">' +
+                '<span class="form-error" id="navAccUserErr" style="display:none"></span>' +
+              '</div>' +
+              '<div class="form-group">' +
+                '<label>E-mail *</label>' +
+                '<input type="email" id="navAccEmail" placeholder="np. jan@example.com">' +
+                '<span class="form-error" id="navAccEmailErr" style="display:none"></span>' +
+              '</div>' +
+              '<div id="navAccAlert"></div>' +
+              '<div class="form-actions">' +
+                '<button type="button" class="btn btn-outline" onclick="Navbar.closeAccount()">Anuluj</button>' +
+                '<button type="submit" class="btn btn-primary" id="navAccBtn">Zapisz</button>' +
+              '</div>' +
+            '</form>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(div.firstChild);
+  }
+
+  function openAccount() {
+    ensureAccountModal();
+    var u = API.getUser() || {};
+    document.getElementById('navAccUser').value  = u.username || '';
+    document.getElementById('navAccEmail').value = u.email || '';
+    ['navAccUserErr','navAccEmailErr'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
+    document.getElementById('navAccAlert').innerHTML = '';
+    document.getElementById('navMAccount').style.display = 'flex';
+    setTimeout(function(){ document.getElementById('navAccUser').focus(); }, 50);
+  }
+
+  function closeAccount() {
+    var m = document.getElementById('navMAccount');
+    if (m) m.style.display = 'none';
+  }
+
+  async function saveAccount(e) {
+    e.preventDefault();
+    ['navAccUserErr','navAccEmailErr'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
+    document.getElementById('navAccAlert').innerHTML = '';
+
+    var username = document.getElementById('navAccUser').value.trim();
+    var email    = document.getElementById('navAccEmail').value.trim();
+    var ok = true;
+    if (!username) { showErr('navAccUserErr', 'Pole wymagane'); ok = false; }
+    if (!email) { showErr('navAccEmailErr', 'Pole wymagane'); ok = false; }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('navAccEmailErr', 'Nieprawidłowy adres e-mail'); ok = false; }
+    if (!ok) return;
+
+    var btn = document.getElementById('navAccBtn');
+    btn.disabled = true; btn.textContent = 'Zapisywanie…';
+    try {
+      var res = await API.post('/auth/account', { username: username, email: email });
+      var u = API.getUser() || {};
+      u.username = res.username || username;
+      u.email    = res.email || email;
+      API.saveUser(u);
+      document.getElementById('navAccAlert').innerHTML =
+        '<div class="alert alert-success" style="margin-top:.75rem">Zapisano.</div>';
+      render(); // odśwież nazwę w navbarze (modal jest w body, więc zostaje)
+      setTimeout(function(){ closeAccount(); }, 1200);
+    } catch (err) {
+      if (err.message && err.message.toLowerCase().indexOf('zaj') !== -1) {
+        showErr('navAccUserErr', err.message);
+      } else {
+        document.getElementById('navAccAlert').innerHTML =
+          '<div class="alert alert-error" style="margin-top:.75rem">' + err.message + '</div>';
+      }
+    } finally {
+      btn.disabled = false; btn.textContent = 'Zapisz';
+    }
+  }
+
   return {
     render:              render,
     setTheme:            setTheme,
@@ -288,5 +378,8 @@ var Navbar = (function () {
     openPasswordChange:  openPasswordChange,
     closePasswordChange: closePasswordChange,
     savePassword:        savePassword,
+    openAccount:         openAccount,
+    closeAccount:        closeAccount,
+    saveAccount:         saveAccount,
   };
 })();
