@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moje konto — Przechowalnia Opon</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/favicon-16x16.png">
+  <link rel="manifest" href="assets/favicon/site.webmanifest"><link rel="stylesheet" href="css/app.css?v=2">
+  <style>
+    .acc-tabs { display:flex; gap:.25rem; border-bottom:1px solid var(--border); margin-bottom:1.25rem; flex-wrap:wrap; }
+    .acc-tab { background:none; border:none; padding:.7rem 1rem; font-size:.9rem; font-weight:600; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; }
+    .acc-tab:hover { color:var(--text); }
+    .acc-tab--active { color:var(--primary); border-bottom-color:var(--primary); }
+    .acc-panel { display:none; }
+    .acc-panel--active { display:block; }
+    .acc-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; margin-bottom:1.25rem; }
+    .acc-card h2 { font-size:1rem; font-weight:700; margin:0 0 1rem; }
+    .acc-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; }
+    .acc-grid .form-group--full { grid-column:1 / -1; }
+    .billing-row { display:flex; justify-content:space-between; gap:1rem; padding:.6rem 0; border-bottom:1px solid var(--border); font-size:.9rem; }
+    .billing-row:last-child { border-bottom:none; }
+    .billing-row .k { color:var(--text-muted); }
+    .billing-row .v { font-weight:600; text-align:right; }
+    @media (max-width:640px){ .acc-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div id="navbar-container"></div>
+  <main class="app-main">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Moje konto</h1>
+          <p class="page-subtitle" id="subtitle">Dane konta, faktury i rozliczenia</p>
+        </div>
+      </div>
+
+      <div class="acc-tabs">
+        <button class="acc-tab acc-tab--active" id="tabBtnData" onclick="showTab('data')">Dane do faktury</button>
+        <button class="acc-tab" id="tabBtnBilling" onclick="showTab('billing')">Rozliczenia</button>
+      </div>
+
+      <!-- ZAKŁADKA: Dane do faktury -->
+      <div class="acc-panel acc-panel--active" id="panelData">
+        <div class="acc-card">
+          <h2>Twoje konto</h2>
+          <div id="accAlert"></div>
+          <div class="acc-grid">
+            <div class="form-group">
+              <label>Nazwa użytkownika (login) *</label>
+              <input type="text" id="accUser">
+              <span class="form-error" id="accUserErr" style="display:none"></span>
+            </div>
+            <div class="form-group">
+              <label>E-mail logowania *</label>
+              <input type="email" id="accEmail">
+              <span class="form-error" id="accEmailErr" style="display:none"></span>
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:1rem">
+            <button class="btn btn-primary" id="accSaveBtn" onclick="saveAccount()">Zapisz konto</button>
+          </div>
+        </div>
+
+        <div class="acc-card">
+          <h2>Dane do faktury</h2>
+          <div id="invAlert"></div>
+          <p id="invReadonlyNote" style="display:none;color:var(--text-muted);font-size:.85rem;margin:-.5rem 0 1rem">
+            Dane do faktury może edytować tylko administrator konta.
+          </p>
+          <div class="acc-grid">
+            <div class="form-group form-group--full">
+              <label>Nazwa firmy *</label>
+              <input type="text" id="coName">
+              <span class="form-error" id="coNameErr" style="display:none"></span>
+            </div>
+            <div class="form-group">
+              <label>NIP</label>
+              <input type="text" id="coNip" placeholder="np. 1234567890">
+            </div>
+            <div class="form-group">
+              <label>Telefon</label>
+              <input type="text" id="coPhone" placeholder="np. 600100200">
+              <span class="form-error" id="coPhoneErr" style="display:none"></span>
+            </div>
+            <div class="form-group form-group--full">
+              <label>Adres (ulica i nr)</label>
+              <input type="text" id="coAddress" placeholder="np. ul. Przykładowa 12">
+            </div>
+            <div class="form-group">
+              <label>Kod pocztowy</label>
+              <input type="text" id="coPostal" placeholder="np. 00-001">
+            </div>
+            <div class="form-group">
+              <label>Miasto</label>
+              <input type="text" id="coCity" placeholder="np. Warszawa">
+            </div>
+            <div class="form-group form-group--full">
+              <label>E-mail firmy (do faktur) *</label>
+              <input type="email" id="coEmail">
+              <span class="form-error" id="coEmailErr" style="display:none"></span>
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:1rem">
+            <button class="btn btn-primary" id="coSaveBtn" onclick="saveInvoiceData()">Zapisz dane do faktury</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZAKŁADKA: Rozliczenia -->
+      <div class="acc-panel" id="panelBilling">
+        <div class="acc-card">
+          <h2>Okres rozliczeniowy</h2>
+          <div id="billingBox"><div style="color:var(--text-muted);font-size:.9rem">Ładowanie…</div></div>
+        </div>
+        <div class="acc-card">
+          <h2>Historia rozliczeń</h2>
+          <div class="table-wrapper">
+            <table class="table">
+              <thead><tr>
+                <th>Nr faktury</th><th>Data</th><th>Okres</th><th>Kwota</th><th>Status</th><th></th>
+              </tr></thead>
+              <tbody id="invoicesBody"><tr><td colspan="6" class="table-empty">Ładowanie…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="js/api.js?v=2"></script>
+<script src="js/auth.js?v=3"></script>
+<script src="js/navbar.js?v=5"></script>
+<script>
+var me = Auth.requireAuth(); if (!me) throw 0;
+Navbar.render();
+
+var canEditCompany = Auth.can(me, 'manage_users');
+var company = null;
+
+function showTab(t) {
+  var isData = t === 'data';
+  document.getElementById('tabBtnData').classList.toggle('acc-tab--active', isData);
+  document.getElementById('tabBtnBilling').classList.toggle('acc-tab--active', !isData);
+  document.getElementById('panelData').classList.toggle('acc-panel--active', isData);
+  document.getElementById('panelBilling').classList.toggle('acc-panel--active', !isData);
+}
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function showErr(id,msg){ var el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
+function clearErr(){ Array.prototype.forEach.call(document.querySelectorAll('.form-error'), function(e){ e.style.display='none'; }); }
+function isEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+function isPhone(v){ return /^\+?\d{7,15}$/.test(v); }
+function fmtDate(d){ return d ? String(d).slice(0,10) : '—'; }
+function fmtAmount(a,cur){ return (a!=null) ? (Number(a).toFixed(2).replace('.',',')+' '+(cur||'PLN')) : '—'; }
+
+/* ===== Twoje konto (login + e-mail) ===== */
+function fillAccount() {
+  document.getElementById('accUser').value  = me.username || '';
+  document.getElementById('accEmail').value = me.email || '';
+}
+async function saveAccount() {
+  clearErr(); document.getElementById('accAlert').innerHTML = '';
+  var username = document.getElementById('accUser').value.trim();
+  var email    = document.getElementById('accEmail').value.trim();
+  var ok = true;
+  if (!username) { showErr('accUserErr','Pole wymagane'); ok=false; }
+  if (!email) { showErr('accEmailErr','Pole wymagane'); ok=false; }
+  else if (!isEmail(email)) { showErr('accEmailErr','Nieprawidłowy adres e-mail'); ok=false; }
+  if (!ok) return;
+  var btn = document.getElementById('accSaveBtn'); btn.disabled=true; btn.textContent='Zapisywanie…';
+  try {
+    var res = await API.post('/auth/account', { username:username, email:email });
+    me.username = res.username || username; me.email = res.email || email;
+    API.saveUser(me); Navbar.render();
+    document.getElementById('accAlert').innerHTML = '<div class="alert alert-success" style="margin-top:.5rem">Zapisano.</div>';
+  } catch(e) {
+    if (e.message && e.message.toLowerCase().indexOf('zaj')!==-1) showErr('accUserErr', e.message);
+    else document.getElementById('accAlert').innerHTML = '<div class="alert alert-error" style="margin-top:.5rem">'+esc(e.message)+'</div>';
+  } finally { btn.disabled=false; btn.textContent='Zapisz konto'; }
+}
+
+/* ===== Dane do faktury (firma) ===== */
+function fillCompany(c) {
+  company = c;
+  document.getElementById('coName').value    = c.name || '';
+  document.getElementById('coNip').value     = c.nip || '';
+  document.getElementById('coPhone').value   = c.phone || '';
+  document.getElementById('coAddress').value = c.address || '';
+  document.getElementById('coPostal').value  = c.postalCode || '';
+  document.getElementById('coCity').value    = c.city || '';
+  document.getElementById('coEmail').value   = c.email || '';
+  if (!canEditCompany) {
+    ['coName','coNip','coPhone','coAddress','coPostal','coCity','coEmail'].forEach(function(id){ document.getElementById(id).disabled = true; });
+    document.getElementById('coSaveBtn').style.display = 'none';
+    document.getElementById('invReadonlyNote').style.display = 'block';
+  }
+}
+async function saveInvoiceData() {
+  clearErr(); document.getElementById('invAlert').innerHTML = '';
+  var name  = document.getElementById('coName').value.trim();
+  var email = document.getElementById('coEmail').value.trim();
+  var phone = document.getElementById('coPhone').value.trim();
+  var ok = true;
+  if (!name) { showErr('coNameErr','Pole wymagane'); ok=false; }
+  if (!email) { showErr('coEmailErr','Pole wymagane'); ok=false; }
+  else if (!isEmail(email)) { showErr('coEmailErr','Nieprawidłowy adres e-mail'); ok=false; }
+  if (phone && !isPhone(phone)) { showErr('coPhoneErr','Tylko cyfry (opcjonalnie +), bez spacji i myślników, 7–15 cyfr'); ok=false; }
+  if (!ok) return;
+  var btn = document.getElementById('coSaveBtn'); btn.disabled=true; btn.textContent='Zapisywanie…';
+  try {
+    var res = await API.put('/companies/mine', {
+      name:name, nip:document.getElementById('coNip').value.trim(), phone:phone,
+      address:document.getElementById('coAddress').value.trim(),
+      postal_code:document.getElementById('coPostal').value.trim(),
+      city:document.getElementById('coCity').value.trim(), email:email
+    });
+    company = res; renderBilling();
+    document.getElementById('invAlert').innerHTML = '<div class="alert alert-success" style="margin-top:.5rem">Zapisano dane do faktury.</div>';
+  } catch(e) {
+    document.getElementById('invAlert').innerHTML = '<div class="alert alert-error" style="margin-top:.5rem">'+esc(e.message)+'</div>';
+  } finally { btn.disabled=false; btn.textContent='Zapisz dane do faktury'; }
+}
+
+/* ===== Rozliczenia ===== */
+function renderBilling() {
+  if (!company) return;
+  var price = company.planPrice != null ? fmtAmount(company.planPrice,'PLN')+' / mies.' : '—';
+  document.getElementById('billingBox').innerHTML =
+    '<div class="billing-row"><span class="k">Pakiet</span><span class="v">'+esc(company.planName||company.planId||'—')+'</span></div>' +
+    '<div class="billing-row"><span class="k">Cena pakietu</span><span class="v">'+price+'</span></div>' +
+    '<div class="billing-row"><span class="k">Data rozpoczęcia rozliczeń</span><span class="v">'+fmtDate(company.billingDate)+'</span></div>' +
+    '<div class="billing-row"><span class="k">Następne rozliczenie</span><span class="v">'+fmtDate(company.nextBillingAt)+'</span></div>';
+}
+function renderInvoices(list) {
+  var body = document.getElementById('invoicesBody');
+  if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="table-empty">Brak faktur.</td></tr>'; return; }
+  body.innerHTML = list.map(function(v){
+    var period = (v.periodStart||v.periodEnd) ? (fmtDate(v.periodStart)+' – '+fmtDate(v.periodEnd)) : '—';
+    var statusMap = { paid:'Opłacona', unpaid:'Nieopłacona', cancelled:'Anulowana' };
+    var dl = v.fileUrl ? '<a class="btn btn-sm btn-outline" href="'+esc(v.fileUrl)+'" target="_blank" rel="noopener">Pobierz</a>' : '';
+    return '<tr>' +
+      '<td>'+esc(v.number)+'</td>' +
+      '<td>'+fmtDate(v.issuedAt)+'</td>' +
+      '<td>'+period+'</td>' +
+      '<td>'+fmtAmount(v.amount, v.currency)+'</td>' +
+      '<td>'+esc(statusMap[v.status]||v.status)+'</td>' +
+      '<td style="text-align:right">'+dl+'</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ===== init ===== */
+fillAccount();
+API.get('/companies/mine').then(function(c){ fillCompany(c); renderBilling(); }).catch(function(e){
+  document.getElementById('billingBox').innerHTML = '<div class="alert alert-error">'+esc(e.message)+'</div>';
+});
+API.get('/companies/mine/invoices').then(renderInvoices).catch(function(){
+  document.getElementById('invoicesBody').innerHTML = '<tr><td colspan="6" class="table-empty">Brak faktur.</td></tr>';
+});
+</script>
+</body>
+</html>

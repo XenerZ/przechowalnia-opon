@@ -3,10 +3,18 @@ require_once __DIR__ . '/../helpers/auth.php';
 require_once __DIR__ . '/../helpers/uuid.php';
 
 function handle_companies($method, $id, $sub, $body) {
-    // Pobranie własnej firmy — każdy zalogowany
-    if ($id === 'mine' && $method === 'GET') {
+    // Własna firma („Moje konto") — self-service dla zalogowanego użytkownika
+    if ($id === 'mine') {
         $user = require_auth();
-        companies_get_mine($user['company_id']);
+        if ($sub === 'invoices' && $method === 'GET') { companies_invoices($user['company_id']); return; }
+        if ($method === 'GET') { companies_get_mine($user['company_id']); return; }
+        if ($method === 'PUT') {
+            // edycja danych do faktury — tylko administrator konta
+            require_permission($user, 'manage_users');
+            companies_update_mine($user['company_id'], $body);
+            return;
+        }
+        method_not_allowed();
         return;
     }
 
@@ -54,6 +62,8 @@ function companies_format($row) {
         'trialEndsAt' => $row['trial_ends_at'] ? substr($row['trial_ends_at'], 0, 10) : null,
         'status'      => $row['status'],
         'notes'       => $row['notes'],
+        'billingDate'   => $row['billing_date']    ?? null,
+        'nextBillingAt' => $row['next_billing_at'] ?? null,
         'createdAt'   => $row['created_at'] ? substr($row['created_at'], 0, 10) : null,
         'userCount'   => isset($row['user_count']) ? (int)$row['user_count'] : null,
     ];
@@ -89,7 +99,7 @@ function companies_get($id) {
 function companies_get_mine($company_id) {
     $pdo  = get_pdo();
     $stmt = $pdo->prepare('
-        SELECT c.*, p.name AS plan_name, p.max_tires, p.has_customers, p.has_actions
+        SELECT c.*, p.name AS plan_name, p.max_tires, p.has_customers, p.has_actions, p.price_monthly
         FROM companies c
         LEFT JOIN plans p ON c.plan_id = p.id
         WHERE c.id = ?
@@ -99,12 +109,57 @@ function companies_get_mine($company_id) {
     if (!$row) { http_response_code(404); echo json_encode(['message' => 'Nie znaleziono firmy.']); return; }
 
     $result = companies_format($row);
+    $result['planPrice'] = isset($row['price_monthly']) && $row['price_monthly'] !== null ? (float)$row['price_monthly'] : null;
     $result['planLimits'] = [
         'maxTires'    => $row['max_tires'] !== null ? (int)$row['max_tires'] : null,
         'hasCustomers' => (bool)$row['has_customers'],
         'hasActions'   => (bool)$row['has_actions'],
     ];
     echo json_encode($result);
+}
+
+// Edycja danych do faktury własnej firmy (nie zmienia planu/statusu — to po stronie supportu)
+function companies_update_mine($company_id, $body) {
+    $pdo = get_pdo();
+    $allowed = ['name','nip','address','city','postal_code','phone','email'];
+    $fields  = [];
+    $vals    = [];
+    foreach ($allowed as $col) {
+        $jsKey = lcfirst(str_replace('_', '', ucwords($col, '_'))); // postal_code -> postalCode
+        $key   = array_key_exists($jsKey, $body) ? $jsKey : (array_key_exists($col, $body) ? $col : null);
+        if (!$key) continue;
+        $val = trim((string)$body[$key]);
+        if ($col === 'name' && $val === '') { http_response_code(400); echo json_encode(['message' => 'Nazwa firmy jest wymagana.']); return; }
+        if ($col === 'email') {
+            if ($val === '' || !filter_var($val, FILTER_VALIDATE_EMAIL)) { http_response_code(400); echo json_encode(['message' => 'Nieprawidłowy adres e-mail.']); return; }
+        }
+        $fields[] = "`$col` = ?";
+        $vals[]   = ($col === 'name' || $col === 'email') ? $val : ($val !== '' ? $val : null);
+    }
+    if ($fields) {
+        $vals[] = $company_id;
+        $pdo->prepare('UPDATE companies SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($vals);
+    }
+    companies_get_mine($company_id);
+}
+
+// Historia rozliczeń / faktury danej firmy
+function companies_invoices($company_id) {
+    $pdo  = get_pdo();
+    $stmt = $pdo->prepare('
+        SELECT id, number, issued_at AS issuedAt, period_start AS periodStart, period_end AS periodEnd,
+               amount, currency, status, file_url AS fileUrl
+        FROM invoices
+        WHERE company_id = ?
+        ORDER BY issued_at DESC, id DESC
+    ');
+    $stmt->execute([$company_id]);
+    $rows = array_map(function ($r) {
+        $r['id']     = (int)$r['id'];
+        $r['amount'] = $r['amount'] !== null ? (float)$r['amount'] : null;
+        return $r;
+    }, $stmt->fetchAll());
+    echo json_encode(array_values($rows));
 }
 
 function companies_create($body) {
