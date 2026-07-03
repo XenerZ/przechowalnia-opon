@@ -148,15 +148,17 @@ function companies_invoices($company_id) {
     $pdo  = get_pdo();
     $stmt = $pdo->prepare('
         SELECT id, number, issued_at AS issuedAt, period_start AS periodStart, period_end AS periodEnd,
-               amount, currency, status, file_url AS fileUrl
+               amount, currency, status, file_url AS fileUrl,
+               (file_data IS NOT NULL) AS hasFile
         FROM invoices
         WHERE company_id = ?
         ORDER BY issued_at DESC, id DESC
     ');
     $stmt->execute([$company_id]);
     $rows = array_map(function ($r) {
-        $r['id']     = (int)$r['id'];
-        $r['amount'] = $r['amount'] !== null ? (float)$r['amount'] : null;
+        $r['id']      = (int)$r['id'];
+        $r['amount']  = $r['amount'] !== null ? (float)$r['amount'] : null;
+        $r['hasFile'] = (bool)$r['hasFile'];
         return $r;
     }, $stmt->fetchAll());
     echo json_encode(array_values($rows));

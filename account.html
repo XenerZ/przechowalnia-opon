@@ -243,7 +243,9 @@ function renderInvoices(list) {
   body.innerHTML = list.map(function(v){
     var period = (v.periodStart||v.periodEnd) ? (fmtDate(v.periodStart)+' – '+fmtDate(v.periodEnd)) : '—';
     var statusMap = { paid:'Opłacona', unpaid:'Nieopłacona', cancelled:'Anulowana' };
-    var dl = v.fileUrl ? '<a class="btn btn-sm btn-outline" href="'+esc(v.fileUrl)+'" target="_blank" rel="noopener">Pobierz</a>' : '';
+    var dl = v.hasFile
+      ? '<button class="btn btn-sm btn-outline" onclick="downloadInvoice('+v.id+',\''+esc(v.number)+'\')">Pobierz</button>'
+      : (v.fileUrl ? '<a class="btn btn-sm btn-outline" href="'+esc(v.fileUrl)+'" target="_blank" rel="noopener">Pobierz</a>' : '');
     return '<tr>' +
       '<td>'+esc(v.number)+'</td>' +
       '<td>'+fmtDate(v.issuedAt)+'</td>' +
@@ -253,6 +255,19 @@ function renderInvoices(list) {
       '<td style="text-align:right">'+dl+'</td>' +
     '</tr>';
   }).join('');
+}
+
+async function downloadInvoice(id, number) {
+  try {
+    var res = await fetch('/api/invoices/' + id + '/file', { headers: { 'Authorization': 'Bearer ' + API.getToken() } });
+    if (!res.ok) throw new Error('Nie udało się pobrać pliku faktury.');
+    var blob = await res.blob();
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'faktura-' + (number || id) + '.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  } catch (e) { alert(e.message); }
 }
 
 /* ===== init ===== */

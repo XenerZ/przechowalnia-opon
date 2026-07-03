@@ -79,6 +79,10 @@ switch ($resource) {
         require_once __DIR__ . '/routes/tickets.php';
         handle_tickets($method, $id, $sub, $body);
         break;
+    case 'invoices':
+        require_once __DIR__ . '/routes/invoices.php';
+        handle_invoices($method, $id, $sub, $body);
+        break;
     default:
         http_response_code(404);
         echo json_encode(['message' => 'Nie znaleziono zasobu.']);
