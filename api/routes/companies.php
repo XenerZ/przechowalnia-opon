@@ -230,6 +230,7 @@ function companies_approve($id) {
     // okres rozliczeniowy startuje w dniu zatwierdzenia; cykl miesięczny
     $pdo->prepare("UPDATE companies
             SET status = 'active',
+                suspend_reason = NULL,
                 billing_date = COALESCE(billing_date, CURDATE()),
                 next_billing_at = DATE_ADD(COALESCE(billing_date, CURDATE()), INTERVAL 1 MONTH)
             WHERE id = ?")->execute([$id]);
@@ -239,6 +240,6 @@ function companies_approve($id) {
 
 function companies_suspend($id) {
     $pdo = get_pdo();
-    $pdo->prepare("UPDATE companies SET status = 'suspended' WHERE id = ?")->execute([$id]);
+    $pdo->prepare("UPDATE companies SET status = 'suspended', suspend_reason = NULL WHERE id = ?")->execute([$id]);
     echo json_encode(['success' => true]);
 }

@@ -79,6 +79,14 @@ function build_jwt_payload(array $user, PDO $pdo): array {
     $poolFeatures = array_column($stmt->fetchAll(), 'feature_name');
     $features = array_values(array_unique(array_merge($features, $poolFeatures)));
 
+    // Info o zaległości (okres karencji przed blokadą) — do baneru w aplikacji
+    require_once __DIR__ . '/../helpers/billing.php';
+    $bill = billing_state($pdo, $user['company_id']);
+    $billingInfo = ($bill['overdue'] && !$bill['blocked'])
+        ? ['overdue' => true, 'daysOverdue' => $bill['daysOverdue'],
+           'blockInDays' => max(0, $bill['graceDays'] - $bill['daysOverdue']), 'nextBillingAt' => $bill['nextBillingAt']]
+        : null;
+
     return [
         'id'          => $user['id'],
         'username'    => $user['username'],
@@ -88,6 +96,7 @@ function build_jwt_payload(array $user, PDO $pdo): array {
         'plan_id'     => $planRow['plan_id'] ?? 'free',
         'features'    => $features,
         'permissions' => $permissions,
+        'billing'     => $billingInfo,
         'iat'         => time(),
         'exp'         => time() + 30 * 24 * 3600, // 30 dni — sesja trwała (localStorage)
     ];
@@ -104,7 +113,7 @@ function auth_login($body) {
     }
 
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('SELECT u.*, c.status AS company_status FROM users u JOIN companies c ON u.company_id = c.id WHERE u.username = ? OR u.email = ?');
+    $stmt = $pdo->prepare('SELECT u.*, c.status AS company_status, c.suspend_reason AS company_suspend_reason FROM users u JOIN companies c ON u.company_id = c.id WHERE u.username = ? OR u.email = ?');
     $stmt->execute([$username, $username]);
     $user = $stmt->fetch();
 
@@ -121,8 +130,27 @@ function auth_login($body) {
     }
 
     if ($user['company_status'] !== 'active') {
+        $billingBlock = ($user['company_suspend_reason'] ?? '') === 'billing';
         http_response_code(403);
-        echo json_encode(['message' => 'Konto firmy jest nieaktywne. Skontaktuj się z administratorem.']);
+        echo json_encode([
+            'message' => $billingBlock
+                ? 'Konto zablokowane z powodu zaległej płatności. Ureguluj fakturę, aby odblokować dostęp.'
+                : 'Konto firmy jest nieaktywne. Skontaktuj się z administratorem.',
+            'billing_blocked' => $billingBlock,
+        ]);
+        return;
+    }
+
+    // Zaległość >10 dni po terminie i brak opłaconej faktury → automatyczna blokada
+    require_once __DIR__ . '/../helpers/billing.php';
+    $bill = billing_state($pdo, $user['company_id']);
+    if ($bill['blocked']) {
+        $pdo->prepare("UPDATE companies SET status='suspended', suspend_reason='billing' WHERE id=?")->execute([$user['company_id']]);
+        http_response_code(403);
+        echo json_encode([
+            'message' => 'Konto zablokowane z powodu zaległej płatności (ponad ' . $bill['graceDays'] . ' dni po terminie). Ureguluj fakturę, aby odblokować dostęp.',
+            'billing_blocked' => true,
+        ]);
         return;
     }
 
