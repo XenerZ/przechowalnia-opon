@@ -7,6 +7,11 @@ function handle_companies($method, $id, $sub, $body) {
     if ($id === 'mine') {
         $user = require_auth();
         if ($sub === 'invoices' && $method === 'GET') { companies_invoices($user['company_id']); return; }
+        if ($sub === 'upgrade' && $method === 'POST') {
+            require_permission($user, 'manage_users'); // zmiana pakietu = akcja administratora
+            companies_upgrade_mine($user['company_id'], $body);
+            return;
+        }
         if ($method === 'GET') { companies_get_mine($user['company_id']); return; }
         if ($method === 'PUT') {
             // edycja danych do faktury — tylko administrator konta
@@ -97,9 +102,10 @@ function companies_get($id) {
 }
 
 function companies_get_mine($company_id) {
+    require_once __DIR__ . '/../helpers/billing.php';
     $pdo  = get_pdo();
     $stmt = $pdo->prepare('
-        SELECT c.*, p.name AS plan_name, p.max_tires, p.has_customers, p.has_actions, p.price_monthly
+        SELECT c.*, p.name AS plan_name, p.max_tires, p.has_customers, p.has_actions, p.price_monthly, p.sort_order
         FROM companies c
         LEFT JOIN plans p ON c.plan_id = p.id
         WHERE c.id = ?
@@ -109,13 +115,45 @@ function companies_get_mine($company_id) {
     if (!$row) { http_response_code(404); echo json_encode(['message' => 'Nie znaleziono firmy.']); return; }
 
     $result = companies_format($row);
-    $result['planPrice'] = isset($row['price_monthly']) && $row['price_monthly'] !== null ? (float)$row['price_monthly'] : null;
+    $result['planPrice']     = isset($row['price_monthly']) && $row['price_monthly'] !== null ? (float)$row['price_monthly'] : null;
+    $result['planSortOrder'] = isset($row['sort_order']) ? (int)$row['sort_order'] : null;
+    $result['periodAmount']  = billing_period_amount($pdo, $company_id); // proporcjonalna wartość za okres
     $result['planLimits'] = [
         'maxTires'    => $row['max_tires'] !== null ? (int)$row['max_tires'] : null,
         'hasCustomers' => (bool)$row['has_customers'],
         'hasActions'   => (bool)$row['has_actions'],
     ];
     echo json_encode($result);
+}
+
+// Podniesienie pakietu przez użytkownika (tylko w górę; obniżenie przez zgłoszenie)
+function companies_upgrade_mine($company_id, $body) {
+    require_once __DIR__ . '/../helpers/billing.php';
+    $pdo    = get_pdo();
+    $target = trim($body['plan_id'] ?? '');
+    if (!$target) { http_response_code(400); echo json_encode(['message' => 'Nie wybrano pakietu.']); return; }
+
+    $q = $pdo->prepare('
+        SELECT cp.sort_order AS cur_order, tp.sort_order AS t_order, tp.price_monthly AS t_price, tp.is_active AS t_active
+        FROM companies c
+        JOIN plans cp ON c.plan_id = cp.id
+        JOIN plans tp ON tp.id = ?
+        WHERE c.id = ?
+    ');
+    $q->execute([$target, $company_id]);
+    $r = $q->fetch();
+    if (!$r) { http_response_code(404); echo json_encode(['message' => 'Nieznany pakiet.']); return; }
+    if (!$r['t_active']) { http_response_code(400); echo json_encode(['message' => 'Pakiet jest niedostępny.']); return; }
+    if ((int)$r['t_order'] <= (int)$r['cur_order']) {
+        http_response_code(400);
+        echo json_encode(['message' => 'Obniżenie pakietu możliwe jest tylko przez zgłoszenie do wsparcia.']);
+        return;
+    }
+
+    // najpierw zapis segmentu (używa dotychczasowej stawki), potem zmiana planu/stawki
+    billing_record_rate_change($pdo, $company_id, (float)$r['t_price']);
+    $pdo->prepare('UPDATE companies SET plan_id = ?, period_rate = ? WHERE id = ?')->execute([$target, (float)$r['t_price'], $company_id]);
+    echo json_encode(['success' => true, 'plan_id' => $target]);
 }
 
 // Edycja danych do faktury własnej firmy (nie zmienia planu/statusu — to po stronie supportu)

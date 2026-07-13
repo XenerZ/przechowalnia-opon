@@ -113,6 +113,10 @@
       <!-- ZAKŁADKA: Rozliczenia -->
       <div class="acc-panel" id="panelBilling">
         <div class="acc-card">
+          <h2>Twój pakiet</h2>
+          <div id="planBox"><div style="color:var(--text-muted);font-size:.9rem">Ładowanie…</div></div>
+        </div>
+        <div class="acc-card">
           <h2>Okres rozliczeniowy</h2>
           <div id="billingBox"><div style="color:var(--text-muted);font-size:.9rem">Ładowanie…</div></div>
         </div>
@@ -231,11 +235,49 @@ async function saveInvoiceData() {
 function renderBilling() {
   if (!company) return;
   var price = company.planPrice != null ? fmtAmount(company.planPrice,'PLN')+' / mies.' : '—';
+  var periodVal = company.periodAmount != null ? fmtAmount(company.periodAmount,'PLN') : price;
   document.getElementById('billingBox').innerHTML =
     '<div class="billing-row"><span class="k">Pakiet</span><span class="v">'+esc(company.planName||company.planId||'—')+'</span></div>' +
     '<div class="billing-row"><span class="k">Cena pakietu</span><span class="v">'+price+'</span></div>' +
     '<div class="billing-row"><span class="k">Data rozpoczęcia rozliczeń</span><span class="v">'+fmtDate(company.billingDate)+'</span></div>' +
-    '<div class="billing-row"><span class="k">Następne rozliczenie</span><span class="v">'+fmtDate(company.nextBillingAt)+'</span></div>';
+    '<div class="billing-row"><span class="k">Następne rozliczenie</span><span class="v">'+fmtDate(company.nextBillingAt)+'</span></div>' +
+    '<div class="billing-row"><span class="k">Wartość za bieżący okres</span><span class="v"><strong>'+periodVal+'</strong></span></div>';
+}
+
+/* ===== Pakiet / zmiana ===== */
+function loadPlanOptions() {
+  API.get('/plans').then(renderPlanBox).catch(function(){
+    document.getElementById('planBox').innerHTML = '<div style="color:var(--text-muted);font-size:.9rem">Nie udało się załadować pakietów.</div>';
+  });
+}
+function renderPlanBox(plans) {
+  if (!company) return;
+  var cur = company.planSortOrder;
+  var rows = plans.map(function(p) {
+    var isCurrent = p.id === company.planId;
+    var priceTxt = (p.priceMonthly && p.priceMonthly > 0) ? (fmtAmount(p.priceMonthly,'PLN')+' / mies.') : 'Za darmo';
+    var action;
+    if (isCurrent) {
+      action = '<span class="status-badge status-badge--green">Obecny pakiet</span>';
+    } else if (cur != null && p.sortOrder > cur) {
+      action = canEditCompany
+        ? '<button class="btn btn-sm btn-primary" onclick="upgradePlan(\''+p.id+'\',\''+esc(p.name)+'\')">Podnieś do '+esc(p.name)+'</button>'
+        : '<span style="color:var(--text-muted);font-size:.8rem">tylko administrator konta</span>';
+    } else {
+      action = '<span style="color:var(--text-muted);font-size:.8rem">niższy pakiet — <a href="tickets.html">napisz zgłoszenie</a></span>';
+    }
+    return '<div class="billing-row"><span class="k"><strong>'+esc(p.name)+'</strong> — '+priceTxt+'</span><span class="v">'+action+'</span></div>';
+  }).join('');
+  document.getElementById('planBox').innerHTML = rows +
+    '<p style="color:var(--text-muted);font-size:.8rem;margin-top:.75rem">Podniesienie pakietu działa od razu i jest rozliczane proporcjonalnie za bieżący okres. Obniżenie pakietu — przez <a href="tickets.html">zgłoszenie do wsparcia</a>.</p>';
+}
+async function upgradePlan(planId, name) {
+  if (!confirm('Podnieść pakiet do „'+name+'"? Zmiana obowiązuje od razu; bieżący okres zostanie rozliczony proporcjonalnie.')) return;
+  try {
+    await API.post('/companies/mine/upgrade', { plan_id: planId });
+    alert('Pakiet podniesiony do „'+name+'".');
+    location.reload();
+  } catch(e) { alert(e.message || 'Nie udało się zmienić pakietu.'); }
 }
 function renderInvoices(list) {
   var body = document.getElementById('invoicesBody');
@@ -278,7 +320,10 @@ document.getElementById('billingBox').innerHTML = new Array(4).fill(
 document.getElementById('invoicesBody').innerHTML = new Array(3).fill(
   '<tr>' + new Array(6).fill('<td><span class="skeleton sk-line"></span></td>').join('') + '</tr>'
 ).join('');
-API.get('/companies/mine').then(function(c){ fillCompany(c); renderBilling(); }).catch(function(e){
+document.getElementById('planBox').innerHTML = new Array(3).fill(
+  '<div class="billing-row"><span class="skeleton sk-line" style="width:40%"></span><span class="skeleton sk-line" style="width:25%"></span></div>'
+).join('');
+API.get('/companies/mine').then(function(c){ fillCompany(c); renderBilling(); loadPlanOptions(); }).catch(function(e){
   document.getElementById('billingBox').innerHTML = '<div class="alert alert-error">'+esc(e.message)+'</div>';
 });
 API.get('/companies/mine/invoices').then(renderInvoices).catch(function(){
