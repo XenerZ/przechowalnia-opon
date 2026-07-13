@@ -113,7 +113,7 @@ function auth_login($body) {
     }
 
     $pdo  = get_pdo();
-    $stmt = $pdo->prepare('SELECT u.*, c.status AS company_status, c.suspend_reason AS company_suspend_reason FROM users u JOIN companies c ON u.company_id = c.id WHERE u.username = ? OR u.email = ?');
+    $stmt = $pdo->prepare('SELECT u.*, c.status AS company_status FROM users u JOIN companies c ON u.company_id = c.id WHERE u.username = ? OR u.email = ?');
     $stmt->execute([$username, $username]);
     $user = $stmt->fetch();
 
@@ -130,7 +130,14 @@ function auth_login($body) {
     }
 
     if ($user['company_status'] !== 'active') {
-        $billingBlock = ($user['company_suspend_reason'] ?? '') === 'billing';
+        // suspend_reason pobierane defensywnie — kolumna może nie istnieć przed migracją
+        $reason = '';
+        try {
+            $rs = $pdo->prepare('SELECT suspend_reason FROM companies WHERE id = ?');
+            $rs->execute([$user['company_id']]);
+            $reason = (string)($rs->fetchColumn() ?: '');
+        } catch (Throwable $e) { $reason = ''; }
+        $billingBlock = $reason === 'billing';
         http_response_code(403);
         echo json_encode([
             'message' => $billingBlock
@@ -141,11 +148,12 @@ function auth_login($body) {
         return;
     }
 
-    // Zaległość >10 dni po terminie i brak opłaconej faktury → automatyczna blokada
+    // Zaległość >10 dni po terminie i brak opłaconej faktury → automatyczna blokada.
+    // Wszystko defensywnie: problem z rozliczeniami nie może zablokować logowania.
     require_once __DIR__ . '/../helpers/billing.php';
     $bill = billing_state($pdo, $user['company_id']);
     if ($bill['blocked']) {
-        $pdo->prepare("UPDATE companies SET status='suspended', suspend_reason='billing' WHERE id=?")->execute([$user['company_id']]);
+        try { $pdo->prepare("UPDATE companies SET status='suspended', suspend_reason='billing' WHERE id=?")->execute([$user['company_id']]); } catch (Throwable $e) {}
         http_response_code(403);
         echo json_encode([
             'message' => 'Konto zablokowane z powodu zaległej płatności (ponad ' . $bill['graceDays'] . ' dni po terminie). Ureguluj fakturę, aby odblokować dostęp.',
