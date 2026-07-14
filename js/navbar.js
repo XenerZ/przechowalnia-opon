@@ -54,7 +54,7 @@ var Navbar = (function () {
 
     var billingWarn = (user && user.billing && user.billing.overdue)
       ? '<div style="background:#fff7ed;color:#9a3412;border-bottom:1px solid #fed7aa;padding:.6rem 1rem;font-size:.85rem;text-align:center;font-weight:600">' +
-          '⚠ Zaległa płatność za okres do ' + (user.billing.nextBillingAt || '') + '. Ureguluj fakturę — konto zostanie zablokowane za ' + (user.billing.blockInDays) + ' dni. Faktury: <a href="account.html" style="color:#9a3412;text-decoration:underline">Moje konto → Rozliczenia</a>.' +
+          '⚠ Minął termin płatności faktury (' + (user.billing.dueDate || '') + '). Ureguluj ją — dostęp zostanie zablokowany za ' + (user.billing.blockInDays) + ' dni. Faktury: <a href="account.html" style="color:#9a3412;text-decoration:underline">Moje konto → Rozliczenia</a>.' +
         '</div>'
       : '';
 

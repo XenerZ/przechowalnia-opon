@@ -125,9 +125,9 @@
           <div class="table-wrapper">
             <table class="table">
               <thead><tr>
-                <th>Nr faktury</th><th>Data</th><th>Okres</th><th>Kwota</th><th>Status</th><th></th>
+                <th>Nr faktury</th><th>Data</th><th>Termin płatności</th><th>Okres</th><th>Kwota</th><th>Status</th><th></th>
               </tr></thead>
-              <tbody id="invoicesBody"><tr><td colspan="6" class="table-empty">Ładowanie…</td></tr></tbody>
+              <tbody id="invoicesBody"><tr><td colspan="7" class="table-empty">Ładowanie…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -139,7 +139,7 @@
 
 <script src="js/api.js?v=2"></script>
 <script src="js/auth.js?v=4"></script>
-<script src="js/navbar.js?v=6"></script>
+<script src="js/navbar.js?v=7"></script>
 <script>
 var me = Auth.requireAuth(); if (!me) throw 0;
 Navbar.render();
@@ -281,16 +281,20 @@ async function upgradePlan(planId, name) {
 }
 function renderInvoices(list) {
   var body = document.getElementById('invoicesBody');
-  if (!list.length) { body.innerHTML = '<tr><td colspan="6" class="table-empty">Brak faktur.</td></tr>'; return; }
+  if (!list.length) { body.innerHTML = '<tr><td colspan="7" class="table-empty">Brak faktur.</td></tr>'; return; }
+  var today = new Date().toISOString().slice(0,10);
   body.innerHTML = list.map(function(v){
     var period = (v.periodStart||v.periodEnd) ? (fmtDate(v.periodStart)+' – '+fmtDate(v.periodEnd)) : '—';
     var statusMap = { paid:'Opłacona', unpaid:'Nieopłacona', cancelled:'Anulowana' };
+    var overdue = (v.status==='unpaid' && v.dueDate && v.dueDate < today);
+    var dueCell = v.dueDate ? ('<span'+(overdue?' style="color:var(--danger);font-weight:600"':'')+'>'+fmtDate(v.dueDate)+(overdue?' ⚠':'')+'</span>') : '—';
     var dl = v.hasFile
       ? '<button class="btn btn-sm btn-outline" onclick="downloadInvoice('+v.id+',\''+esc(v.number)+'\')">Pobierz</button>'
       : (v.fileUrl ? '<a class="btn btn-sm btn-outline" href="'+esc(v.fileUrl)+'" target="_blank" rel="noopener">Pobierz</a>' : '');
     return '<tr>' +
       '<td>'+esc(v.number)+'</td>' +
       '<td>'+fmtDate(v.issuedAt)+'</td>' +
+      '<td>'+dueCell+'</td>' +
       '<td>'+period+'</td>' +
       '<td>'+fmtAmount(v.amount, v.currency)+'</td>' +
       '<td>'+esc(statusMap[v.status]||v.status)+'</td>' +
@@ -318,7 +322,7 @@ document.getElementById('billingBox').innerHTML = new Array(4).fill(
   '<div class="billing-row"><span class="skeleton sk-line" style="width:35%"></span><span class="skeleton sk-line" style="width:22%"></span></div>'
 ).join('');
 document.getElementById('invoicesBody').innerHTML = new Array(3).fill(
-  '<tr>' + new Array(6).fill('<td><span class="skeleton sk-line"></span></td>').join('') + '</tr>'
+  '<tr>' + new Array(7).fill('<td><span class="skeleton sk-line"></span></td>').join('') + '</tr>'
 ).join('');
 document.getElementById('planBox').innerHTML = new Array(3).fill(
   '<div class="billing-row"><span class="skeleton sk-line" style="width:40%"></span><span class="skeleton sk-line" style="width:25%"></span></div>'

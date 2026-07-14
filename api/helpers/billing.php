@@ -1,39 +1,36 @@
 <?php
 // Wspólna logika zaległości rozliczeniowych (login, budowa JWT, cron).
-// Zasada: okres kończy się w next_billing_at. Jeśli minął i nie ma opłaconej
-// faktury za bieżący okres → zaległość; po BILLING_GRACE_DAYS dniach → blokada.
+// Zasada: blokada następuje dopiero po BILLING_GRACE_DAYS dniach od minięcia
+// terminu płatności (due_date) nieopłaconej faktury.
 
-if (!defined('BILLING_GRACE_DAYS')) define('BILLING_GRACE_DAYS', 10);
+if (!defined('BILLING_GRACE_DAYS')) define('BILLING_GRACE_DAYS', 2);
 
 function billing_state(PDO $pdo, string $company_id): array {
     $out = ['overdue' => false, 'daysOverdue' => 0, 'blocked' => false,
-            'graceDays' => BILLING_GRACE_DAYS, 'nextBillingAt' => null];
+            'graceDays' => BILLING_GRACE_DAYS, 'dueDate' => null];
 
     // Rozliczenia nie mogą blokować logowania — przy braku tabel/kolumn (np. przed
     // migracją) lub dowolnym błędzie zwracamy stan „bez zaległości".
     try {
-        $c = $pdo->prepare('SELECT billing_date, next_billing_at FROM companies WHERE id = ?');
-        $c->execute([$company_id]);
-        $row = $c->fetch();
-        if (!$row || empty($row['next_billing_at'])) return $out;
+        // najbardziej zaległa nieopłacona faktura z ustawionym terminem płatności
+        $q = $pdo->prepare("SELECT due_date FROM invoices
+                            WHERE company_id = ? AND status = 'unpaid' AND due_date IS NOT NULL
+                            ORDER BY due_date ASC LIMIT 1");
+        $q->execute([$company_id]);
+        $due = $q->fetchColumn();
+        if (!$due) return $out;
 
-        $out['nextBillingAt'] = substr($row['next_billing_at'], 0, 10);
+        $out['dueDate'] = substr($due, 0, 10);
         $today = new DateTime('today');
-        $end   = new DateTime($row['next_billing_at']);
-        if ($today <= $end) return $out; // okres jeszcze trwa
+        $dueD  = new DateTime($due);
+        if ($today <= $dueD) return $out; // termin jeszcze nie minął
 
-        // opłacona faktura za bieżący okres?
-        $paid = $pdo->prepare("SELECT 1 FROM invoices WHERE company_id = ? AND status = 'paid'
-                               AND (period_end IS NULL OR period_end >= ?) LIMIT 1");
-        $paid->execute([$company_id, $row['billing_date'] ?: '1970-01-01']);
-        if ($paid->fetch()) return $out;
-
-        $out['daysOverdue'] = (int)$end->diff($today)->days;
+        $out['daysOverdue'] = (int)$dueD->diff($today)->days;
         $out['overdue']     = true;
         $out['blocked']     = $out['daysOverdue'] > BILLING_GRACE_DAYS;
     } catch (Throwable $e) {
         return ['overdue' => false, 'daysOverdue' => 0, 'blocked' => false,
-                'graceDays' => BILLING_GRACE_DAYS, 'nextBillingAt' => null];
+                'graceDays' => BILLING_GRACE_DAYS, 'dueDate' => null];
     }
     return $out;
 }

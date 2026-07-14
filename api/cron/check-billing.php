@@ -16,17 +16,17 @@ require_once __DIR__ . '/../helpers/billing.php';
 
 $pdo = get_pdo();
 
-// Kandydaci: aktywne firmy po terminie, bez opłaconej faktury za bieżący okres
+// Kandydaci: aktywne firmy z nieopłaconą fakturą, której termin płatności minął
+// o więcej niż BILLING_GRACE_DAYS dni.
 $stmt = $pdo->prepare("
     SELECT c.id, c.name
     FROM companies c
     WHERE c.status = 'active'
-      AND c.next_billing_at IS NOT NULL
-      AND c.next_billing_at < (CURDATE() - INTERVAL :grace DAY)
-      AND NOT EXISTS (
+      AND EXISTS (
           SELECT 1 FROM invoices i
-          WHERE i.company_id = c.id AND i.status = 'paid'
-            AND (i.period_end IS NULL OR i.period_end >= c.billing_date)
+          WHERE i.company_id = c.id AND i.status = 'unpaid'
+            AND i.due_date IS NOT NULL
+            AND i.due_date < (CURDATE() - INTERVAL :grace DAY)
       )
 ");
 $stmt->bindValue(':grace', BILLING_GRACE_DAYS, PDO::PARAM_INT);

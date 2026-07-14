@@ -84,7 +84,7 @@ function build_jwt_payload(array $user, PDO $pdo): array {
     $bill = billing_state($pdo, $user['company_id']);
     $billingInfo = ($bill['overdue'] && !$bill['blocked'])
         ? ['overdue' => true, 'daysOverdue' => $bill['daysOverdue'],
-           'blockInDays' => max(0, $bill['graceDays'] - $bill['daysOverdue']), 'nextBillingAt' => $bill['nextBillingAt']]
+           'blockInDays' => max(0, $bill['graceDays'] - $bill['daysOverdue'] + 1), 'dueDate' => $bill['dueDate']]
         : null;
 
     return [

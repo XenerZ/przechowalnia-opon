@@ -185,7 +185,7 @@ function companies_update_mine($company_id, $body) {
 function companies_invoices($company_id) {
     $pdo  = get_pdo();
     $stmt = $pdo->prepare('
-        SELECT id, number, issued_at AS issuedAt, period_start AS periodStart, period_end AS periodEnd,
+        SELECT id, number, issued_at AS issuedAt, due_date AS dueDate, period_start AS periodStart, period_end AS periodEnd,
                amount, currency, status, file_url AS fileUrl,
                (file_data IS NOT NULL) AS hasFile
         FROM invoices
